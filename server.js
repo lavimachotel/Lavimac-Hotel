@@ -1,3 +1,4 @@
+// Move this file to the client directory for accessibility
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 5000;
