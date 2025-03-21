@@ -4,20 +4,32 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Custom analytics function for web vitals
+const sendToAnalytics = ({ name, delta, value, id }) => {
+  // In production, you would send these metrics to your analytics service
+  console.log({ name, delta, value, id });
+  
+  // Example: if using Google Analytics
+  // window.gtag('event', name, {
+  //   value: delta,
+  //   metric_id: id,
+  //   metric_value: value,
+  //   metric_delta: delta,
+  // });
+};
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
+    <ErrorBoundary>
+      <BrowserRouter>
         <App />
-      </AuthProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+// Enable performance monitoring
+reportWebVitals(sendToAnalytics);

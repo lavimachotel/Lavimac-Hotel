@@ -1,0 +1,5 @@
+const statusColor = 
+  room.status === 'Available' ? 'bg-[#006400] text-white' : 
+  room.status === 'Occupied' ? 'bg-red-500 text-white' :
+  room.status === 'Reserved' ? 'bg-blue-500 text-white' : 
+  'bg-yellow-500 text-white'; 

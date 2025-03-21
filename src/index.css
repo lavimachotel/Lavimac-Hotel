@@ -9,6 +9,16 @@
   --accent-color: #FF6B00;
   --gray-dark: #1F2937;
   --gray-light: #F3F4F6;
+  --bg-primary: #000000;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --border-color: #4b5563;
+  --card-bg: #1f2937;
+  --sidebar-bg: #111827;
+  --input-bg: #374151;
 }
 
 @layer base {
@@ -16,13 +26,14 @@
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: var(--gray-light);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
   }
 }
 
 @layer components {
   .landing-page {
-    @apply bg-black text-white min-h-screen;
+    @apply min-h-screen;
   }
 
   .container {
@@ -34,23 +45,23 @@
   }
 
   .hotel-name {
-    @apply text-[color:var(--primary-color)] text-2xl mb-4;
+    @apply text-2xl mb-4;
   }
 
   .title {
-    @apply text-5xl font-bold mb-4 leading-tight;
+    @apply text-5xl font-bold mb-6;
   }
 
   .description {
-    @apply text-gray-400 text-lg mb-8 max-w-2xl leading-relaxed;
+    @apply text-lg mb-8 max-w-lg;
   }
 
   .buttons {
-    @apply flex gap-4 mb-8;
+    @apply flex flex-wrap gap-4 mb-12;
   }
 
   .button {
-    @apply flex items-center gap-2 px-6 py-3 rounded-md text-base cursor-pointer transition-all duration-200 no-underline;
+    @apply flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300;
   }
 
   .button i {
@@ -58,23 +69,31 @@
   }
 
   .button-primary {
-    @apply bg-[color:var(--primary-color)] text-white border-none hover:bg-[#0081CC];
+    @apply bg-blue-600 text-white hover:bg-blue-700;
   }
 
   .button-outline {
-    @apply bg-transparent border border-[color:var(--primary-color)] text-white hover:bg-opacity-10;
+    @apply bg-transparent border transition-all duration-300;
+  }
+
+  .dark-mode .button-outline {
+    @apply border-white text-white hover:bg-white/10;
+  }
+
+  .light-mode .button-outline {
+    @apply border-gray-800 text-gray-800 hover:bg-gray-800/10;
   }
 
   .stats {
-    @apply flex gap-8;
+    @apply flex gap-6 flex-wrap;
   }
 
   .stat {
-    @apply flex items-center gap-3;
+    @apply flex items-center gap-3 p-4 rounded-lg;
   }
 
   .stat-icon {
-    @apply text-[color:var(--accent-color)] text-2xl;
+    @apply text-2xl;
   }
 
   .stat-text {
@@ -82,11 +101,11 @@
   }
 
   .stat-label {
-    @apply text-gray-400 text-sm;
+    @apply text-sm;
   }
 
   .stat-value {
-    @apply text-white text-xl font-bold;
+    @apply text-lg font-bold;
   }
 
   .image-section {
@@ -98,7 +117,7 @@
   }
 
   .badge {
-    @apply absolute left-1/2 -bottom-4 -translate-x-1/2 bg-[color:var(--primary-color)] text-white px-6 py-2 rounded-full whitespace-nowrap;
+    @apply absolute bottom-4 right-4 px-4 py-2 rounded-lg font-medium;
   }
 
   .dashboard {
@@ -152,4 +171,84 @@
   .stats-grid {
     @apply grid-cols-1;
   }
+}
+
+/* Dark Mode (Default) */
+.dark-mode {
+  --bg-primary: #000000;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --accent-color: #3b82f6;
+  --border-color: #4b5563;
+  --card-bg: #1f2937;
+  --sidebar-bg: #111827;
+  --input-bg: #374151;
+}
+
+/* Light Mode */
+.light-mode {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-tertiary: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --accent-color: #2563eb;
+  --border-color: #d1d5db;
+  --card-bg: #ffffff;
+  --sidebar-bg: #f3f4f6;
+  --input-bg: #ffffff;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+}
+
+.dark-mode .theme-toggle {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.light-mode .theme-toggle {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+/* Apply CSS variables to elements */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Light mode specific overrides */
+.light-mode .landing-page,
+.light-mode .min-h-screen {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.light-mode input,
+.light-mode select,
+.light-mode textarea {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.light-mode .max-w-md {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
 }
