@@ -7,11 +7,15 @@ const Home = () => {
     const { user } = useUser();
 
     useEffect(() => {
+        console.log('Home component: checking user state:', user ? 'authenticated' : 'not authenticated');
+        
         // If user is already logged in, redirect to dashboard
         if (user) {
+            console.log('User is authenticated, redirecting to dashboard');
             navigate('/dashboard');
         } else {
             // Otherwise redirect to landing page
+            console.log('User is not authenticated, redirecting to landing page');
             navigate('/landing');
         }
     }, [user, navigate]);

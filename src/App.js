@@ -13,6 +13,7 @@ import ReservationsPage from './components/ReservationsPage';
 import ProfileModal from './components/ProfileModal';
 import SettingsPage from './components/SettingsPage';
 import { Toaster } from 'react-hot-toast';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Use lazy loading for route components
 const LandingPage = lazy(() => import('./components/LandingPage'));
@@ -68,20 +69,75 @@ const App = () => {
                       <Route path="/" element={<Home />} />
                       <Route path="/landing" element={<LandingPage />} />
                       <Route path="/login" element={<LoginPage />} />
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/rooms" element={<RoomsPage />} />
-                      <Route path="/reservations" element={<ReservationsPage />} />
-                      <Route path="/guests" element={<GuestsPage />} />
-                      <Route path="/tasks" element={<TasksPage />} />
-                      <Route path="/billing" element={<BillingPage />} />
-                      <Route path="/services" element={<ServicesPage />} />
-                      <Route path="/reports" element={<ReportsPage />} />
-                      <Route path="/profile" element={<ProfileModal />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/admin/access-control" element={<AdminAccessControl />} />
-                      <Route path="/manager/access-control" element={<ManagerAccessControl />} />
-                      <Route path="/test-access-requests" element={<TestAccessRequests />} />
                       <Route path="/request-access" element={<RequestAccessPage />} />
+                      
+                      {/* Protected Routes */}
+                      <Route path="/dashboard" element={
+                        <ProtectedRoute>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/rooms" element={
+                        <ProtectedRoute>
+                          <RoomsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/reservations" element={
+                        <ProtectedRoute>
+                          <ReservationsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/guests" element={
+                        <ProtectedRoute>
+                          <GuestsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/tasks" element={
+                        <ProtectedRoute>
+                          <TasksPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/billing" element={
+                        <ProtectedRoute>
+                          <BillingPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/services" element={
+                        <ProtectedRoute>
+                          <ServicesPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/reports" element={
+                        <ProtectedRoute>
+                          <ReportsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/profile" element={
+                        <ProtectedRoute>
+                          <ProfileModal />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/settings" element={
+                        <ProtectedRoute>
+                          <SettingsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/admin/access-control" element={
+                        <ProtectedRoute>
+                          <AdminAccessControl />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/manager/access-control" element={
+                        <ProtectedRoute>
+                          <ManagerAccessControl />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/test-access-requests" element={
+                        <ProtectedRoute>
+                          <TestAccessRequests />
+                        </ProtectedRoute>
+                      } />
+                      
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>
