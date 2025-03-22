@@ -304,23 +304,6 @@ const LoginPage = () => {
                 </Link>
               </p>
             </div>
-            
-            {/* Demo login information - remove in production */}
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-gray-600">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Demo Login Credentials:</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="p-2 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200">Manager</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">manager@hotel.com</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">manager123</p>
-                </div>
-                <div className="p-2 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-600">
-                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200">Admin</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">admin@hotel.com</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">admin123</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

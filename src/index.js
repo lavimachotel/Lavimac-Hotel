@@ -20,11 +20,14 @@ const sendToAnalytics = ({ name, delta, value, id }) => {
   // });
 };
 
+// Get base URL from environment or default to root
+const baseUrl = process.env.PUBLIC_URL || '';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      <BrowserRouter basename={baseUrl}>
         <App />
       </BrowserRouter>
     </ErrorBoundary>
