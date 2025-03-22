@@ -41,7 +41,36 @@ const Sidebar = ({ activeLink }) => {
 
   // Handle navigation with special cases for admin routes
   const handleNavigation = (link) => {
+    console.log('Navigating to:', link.text);
+    
     switch(link.text) {
+      case 'Dashboard':
+        navigate('/dashboard');
+        break;
+      case 'Reservations':
+        navigate('/reservations');
+        break;
+      case 'Rooms':
+        navigate('/rooms');
+        break;
+      case 'Guests':
+        navigate('/guests');
+        break;
+      case 'Tasks':
+        navigate('/tasks');
+        break;
+      case 'Billing':
+        navigate('/billing');
+        break;
+      case 'Services':
+        navigate('/services');
+        break;
+      case 'Reports':
+        navigate('/reports');
+        break;
+      case 'Settings':
+        navigate('/settings');
+        break;
       case 'Access Control':
         navigate('/admin/access-control');
         break;
@@ -52,7 +81,10 @@ const Sidebar = ({ activeLink }) => {
         navigate('/diagnostics');
         break;
       default:
-        navigate(`/${link.text.toLowerCase().replace(' ', '-')}`);
+        // Convert route safely: lowercase and replace all spaces with hyphens
+        const route = link.text.toLowerCase().replace(/\s+/g, '-');
+        console.log('Default navigation to:', route);
+        navigate(`/${route}`);
     }
   };
 
@@ -87,7 +119,10 @@ const Sidebar = ({ activeLink }) => {
                         ? 'text-gray-400 hover:bg-gray-800 hover:text-white'
                         : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
                   }`}
-                  onClick={() => handleNavigation(link)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleNavigation(link);
+                  }}
                 >
                   <i className={`fas ${link.icon} ${sidebarOpen ? 'mr-3' : 'mx-auto'} text-xl`}></i>
                   {sidebarOpen && <span>{link.text}</span>}
