@@ -37,6 +37,36 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice }) => {
   // Add loading state at the top with other state variables 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Add state for existing invoices
+  const [existingInvoices, setExistingInvoices] = useState([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  
+  // Fetch existing invoices when the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const fetchExistingInvoices = async () => {
+        setLoadingInvoices(true);
+        try {
+          const { data, error } = await supabase
+            .from('invoices')
+            .select('guest_id, guest_name');
+          
+          if (error) {
+            console.error('Error fetching existing invoices:', error);
+          } else {
+            setExistingInvoices(data || []);
+          }
+        } catch (err) {
+          console.error('Error in invoice fetch:', err);
+        } finally {
+          setLoadingInvoices(false);
+        }
+      };
+      
+      fetchExistingInvoices();
+    }
+  }, [isOpen]);
+  
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -57,14 +87,29 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice }) => {
     }
   }, [isOpen]);
   
-  // Combine reservation data and guest data for selection
+  // Combine reservation data and guest data for selection, filtering out guests who already have invoices
   const guestOptions = [...reservations, ...guestList].filter((item, index, self) => {
-    // Remove duplicates by guest name or id
-    return index === self.findIndex(t => (
+    // First, remove duplicates by guest name or id
+    const isUnique = index === self.findIndex(t => (
       (t.guest_name && item.guest_name && t.guest_name === item.guest_name) ||
       (t.name && item.name && t.name === item.name) ||
       (t.id && item.id && t.id === item.id)
     ));
+    
+    if (!isUnique) return false;
+    
+    // Then, filter out guests who already have invoices
+    const guestId = item.guest_id || item.id;
+    const guestName = item.guest_name || item.name;
+    
+    // Check if this guest already has an invoice by id or name
+    const hasInvoice = existingInvoices.some(invoice => 
+      (guestId && invoice.guest_id === guestId) || 
+      (guestName && invoice.guest_name === guestName)
+    );
+    
+    // Keep guests who don't have invoices
+    return !hasInvoice;
   });
   
   // Handle guest selection
@@ -673,50 +718,60 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice }) => {
         <div className="p-6">
           <div className="mb-6">
             <label className="block mb-2 text-sm font-medium">Select Guest</label>
-            <select 
-              className={`w-full p-2.5 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`}
-              value={selectedGuest ? (selectedGuest.guest_id || selectedGuest.id || '') : ''}
-              onChange={(e) => {
-                // Get the selected guest ID
-                const selectedId = e.target.value;
-                if (!selectedId) {
-                  // If no guest is selected, reset the form
-                  setSelectedGuest(null);
-                  resetInvoiceDetails();
-                  return;
-                }
-                
-                // Find the guest object matching the selected ID
-                const selectedGuest = guestOptions.find(g => 
-                  String(g.guest_id) === selectedId || String(g.id) === selectedId
-                );
-                
-                if (selectedGuest) {
-                  // First reset the form
-                  resetInvoiceDetails();
+            {loadingInvoices ? (
+              <div className={`w-full p-2.5 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'} flex items-center justify-center`}>
+                <i className="fas fa-spinner fa-spin mr-2"></i> Loading guest list...
+              </div>
+            ) : guestOptions.length === 0 ? (
+              <div className={`w-full p-2.5 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`}>
+                No guests without invoices found. All guests have been invoiced.
+              </div>
+            ) : (
+              <select 
+                className={`w-full p-2.5 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`}
+                value={selectedGuest ? (selectedGuest.guest_id || selectedGuest.id || '') : ''}
+                onChange={(e) => {
+                  // Get the selected guest ID
+                  const selectedId = e.target.value;
+                  if (!selectedId) {
+                    // If no guest is selected, reset the form
+                    setSelectedGuest(null);
+                    resetInvoiceDetails();
+                    return;
+                  }
                   
-                  // Then set the selected guest
-                  setSelectedGuest(selectedGuest);
+                  // Find the guest object matching the selected ID
+                  const selectedGuest = guestOptions.find(g => 
+                    String(g.guest_id) === selectedId || String(g.id) === selectedId
+                  );
                   
-                  // Allow state update to complete before processing the guest
-                  setTimeout(() => {
-                    console.log("Processing selected guest:", selectedGuest);
-                    handleGuestSelect(selectedGuest);
-                  }, 100);
-                }
-              }}
-            >
-              <option value="">-- Select a guest --</option>
-              {guestOptions.map((guest, index) => {
-                const guestId = guest.guest_id || guest.id || index;
-                const guestName = guest.guest_name || guest.name || 'Guest';
-                return (
-                  <option key={index} value={guestId}>
-                    {guestName} {guest.room_id || guest.room ? ` - Room ${guest.room_id || guest.room}` : ''}
-                  </option>
-                );
-              })}
-            </select>
+                  if (selectedGuest) {
+                    // First reset the form
+                    resetInvoiceDetails();
+                    
+                    // Then set the selected guest
+                    setSelectedGuest(selectedGuest);
+                    
+                    // Allow state update to complete before processing the guest
+                    setTimeout(() => {
+                      console.log("Processing selected guest:", selectedGuest);
+                      handleGuestSelect(selectedGuest);
+                    }, 100);
+                  }
+                }}
+              >
+                <option value="">-- Select a guest --</option>
+                {guestOptions.map((guest, index) => {
+                  const guestId = guest.guest_id || guest.id || index;
+                  const guestName = guest.guest_name || guest.name || 'Guest';
+                  return (
+                    <option key={index} value={guestId}>
+                      {guestName} {guest.room_id || guest.room ? ` - Room ${guest.room_id || guest.room}` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
           </div>
           
           {selectedGuest && (

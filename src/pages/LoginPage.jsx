@@ -31,7 +31,7 @@ const LoginPage = () => {
     } else if (role === 'manager') {
       navigate('/manager/access-control');
     } else {
-      navigate('/dashboard');
+      navigate('/staff/time-attendance');
     }
   };
 
@@ -53,57 +53,6 @@ const LoginPage = () => {
     console.log(`Attempting to login with email: ${formData.email}`);
     
     try {
-      // Check for demo accounts
-      if (formData.email === 'manager@hotel.com' && formData.password === 'manager123') {
-        // Set manager user in context
-        setCurrentUser({
-          id: 'demo-manager-id',
-          email: 'manager@hotel.com',
-          role: 'manager',
-          fullName: 'Hotel Manager',
-          position: 'Hotel Manager',
-          department: 'Management',
-          contactNumber: '123-456-7890',
-          avatar_url: null
-        });
-        toast.success('Welcome, Manager!');
-        navigate('/manager/access-control');
-        return;
-      }
-
-      if (formData.email === 'admin@hotel.com' && formData.password === 'admin123') {
-        // Set admin user in context
-        setCurrentUser({
-          id: 'demo-admin-id',
-          email: 'admin@hotel.com',
-          role: 'admin',
-          fullName: 'System Administrator',
-          position: 'Administrator',
-          department: 'Management',
-          contactNumber: '123-456-7890',
-          avatar_url: null
-        });
-        toast.success('Welcome, Administrator!');
-        navigate('/admin/access-control');
-        return;
-      }
-
-      // Check if user exists in staff_credentials
-      console.log("Checking if user exists in staff_credentials...");
-      const { data: credData, error: credError } = await supabase
-        .from('staff_credentials')
-        .select('*')
-        .eq('email', formData.email)
-        .maybeSingle();
-        
-      if (credError) {
-        console.error("Error checking staff_credentials:", credError);
-      } else if (credData) {
-        console.log("Found user in staff_credentials:", credData.user_id);
-      } else {
-        console.log("User not found in staff_credentials");
-      }
-
       // Try regular Supabase auth
       console.log("Attempting Supabase auth login...");
       const { data, error: authError } = await supabase.auth.signInWithPassword({

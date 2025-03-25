@@ -7,10 +7,14 @@ import Sidebar from './Sidebar';
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format, subDays, parseISO, isToday, isAfter, isBefore, addDays } from 'date-fns';
+import { format, subDays, parseISO, isToday, isAfter, isBefore, addDays, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
 import supabase from '../supabaseClient';
 import { FaFilePdf, FaFileExcel, FaFileCsv, FaEye, FaShareAlt, FaDownload, FaEnvelope, FaLink, FaTimesCircle } from 'react-icons/fa';
+import { v4 as uuidv4 } from 'uuid';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useUser } from '../context/UserContext';
 
 // Simple Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
@@ -37,7 +41,7 @@ const Toast = ({ message, type, onClose }) => {
 };
 
 // Modal component for previewing and sharing reports
-const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, isDarkMode, initialTab = 'preview' }) => {
+const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, darkMode, initialTab = 'preview' }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [shareEmail, setShareEmail] = useState('');
   const [shareLink, setShareLink] = useState('');
@@ -78,7 +82,7 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
   
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center">
-      <div className={`relative ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} w-11/12 max-w-5xl rounded-lg shadow-lg p-6 m-4`}>
+      <div className={`relative ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} w-11/12 max-w-5xl rounded-lg shadow-lg p-6 m-4`}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">{title}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
@@ -90,7 +94,7 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
         <div className="flex border-b mb-4">
           <button 
             className={`py-2 px-4 ${activeTab === 'preview' ? 
-              `font-bold border-b-2 ${isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-500'}` : 
+              `font-bold border-b-2 ${darkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-500'}` : 
               'text-gray-500'}`}
             onClick={() => setActiveTab('preview')}
           >
@@ -98,7 +102,7 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
           </button>
           <button 
             className={`py-2 px-4 ${activeTab === 'share' ? 
-              `font-bold border-b-2 ${isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-500'}` : 
+              `font-bold border-b-2 ${darkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-500'}` : 
               'text-gray-500'}`}
             onClick={() => setActiveTab('share')}
           >
@@ -116,11 +120,11 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
                 title="PDF Preview"
               ></iframe>
             ) : reportType === 'EXCEL' || reportType === 'CSV' ? (
-              <div className={`overflow-auto ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded`}>
-                <table className={`min-w-full border ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+              <div className={`overflow-auto ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded`}>
+                <table className={`min-w-full border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
                   {reportData?.previewData?.headers && (
                     <thead>
-                      <tr className={`${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-200 border-gray-300'} border-b`}>
+                      <tr className={`${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-200 border-gray-300'} border-b`}>
                         {reportData.previewData.headers.map((header, idx) => (
                           <th key={idx} className="py-2 px-4 text-left">{header}</th>
                         ))}
@@ -129,7 +133,7 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
                   )}
                   <tbody>
                     {reportData?.previewData?.rows && reportData.previewData.rows.map((row, rowIdx) => (
-                      <tr key={rowIdx} className={`${rowIdx % 2 === 0 ? (isDarkMode ? 'bg-gray-700' : 'bg-white') : (isDarkMode ? 'bg-gray-750' : 'bg-gray-50')} border-b ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                      <tr key={rowIdx} className={`${rowIdx % 2 === 0 ? (darkMode ? 'bg-gray-700' : 'bg-white') : (darkMode ? 'bg-gray-750' : 'bg-gray-50')} border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
                         {row.map((cell, cellIdx) => (
                           <td key={cellIdx} className="py-2 px-4">{cell}</td>
                         ))}
@@ -157,7 +161,7 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
                   value={shareEmail}
                   onChange={(e) => setShareEmail(e.target.value)}
                   placeholder="Enter recipient's email"
-                  className={`flex-1 p-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                  className={`flex-1 p-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
                   required
                 />
                 <button 
@@ -176,7 +180,7 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
                   type="text"
                   value={shareLink}
                   readOnly
-                  className={`flex-1 p-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                  className={`flex-1 p-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
                 />
                 <button 
                   onClick={copyLinkToClipboard}
@@ -195,7 +199,79 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
         <div className="flex justify-end mt-6">
           <button 
             onClick={onClose}
-            className={`px-4 py-2 rounded ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+            className={`px-4 py-2 rounded ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Preview Modal Component
+const PreviewModal = ({ isOpen, onClose, report }) => {
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
+  
+  if (!isOpen || !report) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className={`w-full max-w-6xl max-h-[90vh] overflow-auto ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'} rounded-lg shadow-xl p-6`}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">{report.name}</h2>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div className="mb-4">
+          <p><strong>Date:</strong> {new Date(report.date).toLocaleString()}</p>
+          <p><strong>Type:</strong> {report.type}</p>
+          <p><strong>Format:</strong> {(report.format || report.type || 'Unknown').toUpperCase()}</p>
+          <p><strong>Generated By:</strong> {report.generatedBy}</p>
+        </div>
+        
+        {report.previewData && (report.format === 'pdf' || report.type === 'PDF') && (
+          <div className="w-full h-[70vh] border border-gray-300 rounded overflow-hidden">
+            <object 
+              data={report.previewData} 
+              type="application/pdf" 
+              width="100%" 
+              height="100%"
+              className="w-full h-full"
+            >
+              <p>It appears your browser doesn't support embedded PDFs. 
+                <a href={report.previewData} target="_blank" rel="noopener noreferrer">Click here to download the PDF</a>.
+              </p>
+            </object>
+          </div>
+        )}
+        
+        <div className="flex justify-end mt-4 space-x-2">
+          <button 
+            onClick={() => {
+              // Download the report
+              const link = document.createElement('a');
+              link.href = report.previewData;
+              link.download = report.filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className={`px-4 py-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded-md`}
+          >
+            Download
+          </button>
+          <button 
+            onClick={onClose}
+            className={`px-4 py-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} rounded-md`}
           >
             Close
           </button>
@@ -206,28 +282,15 @@ const ReportModal = ({ isOpen, onClose, title, content, reportData, reportType, 
 };
 
 const Reports = () => {
+  const { user } = useUser();
   const { theme } = useTheme();
-  const isDarkMode = theme === 'dark';
-  const { rooms, reservations, revenue } = useRoomReservation();
+  const darkMode = theme === 'dark';
   
-  // Toast notification state
-  const [toast, setToast] = useState(null);
-  
-  // Show toast notification
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
-  
-  // Hide toast notification
-  const hideToast = () => {
-    setToast(null);
-  };
-  
-  // Refs for charts
-  const revenueChartRef = useRef(null);
+  // Chart refs
   const revenueChartInstance = useRef(null);
-  const occupancyChartRef = useRef(null);
   const occupancyChartInstance = useRef(null);
+  const occupancyChartRef = useRef(null);
+  const revenueChartRef = useRef(null);
   
   // State for report parameters
   const [dateRange, setDateRange] = useState('7days');
@@ -239,11 +302,14 @@ const Reports = () => {
   const [occupancyData, setOccupancyData] = useState({ dates: [], values: [] });
   const [isLoading, setIsLoading] = useState(true);
   
-  // New state variables for different report types
+  // State for different data types
   const [guestData, setGuestData] = useState([]);
   const [financialData, setFinancialData] = useState([]);
   const [housekeepingData, setHousekeepingData] = useState([]);
   const [monthlyPerformanceData, setMonthlyPerformanceData] = useState({});
+  const [rooms, setRooms] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [revenue, setRevenue] = useState({});
   
   // State for selected report type
   const [selectedReportType, setSelectedReportType] = useState('summary');
@@ -252,41 +318,129 @@ const Reports = () => {
   const [reportHistory, setReportHistory] = useState([]);
   
   // State for preview modal
-  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   
-  // Load report history from localStorage when component mounts
+  // Calculated fields for use in components and charts
+  const totalRevenue = revenueData?.values?.reduce((sum, value) => sum + value, 0) || 0;
+  const avgOccupancy = occupancyData?.values?.length ? 
+    Math.round(occupancyData.values.reduce((sum, value) => sum + value, 0) / occupancyData.values.length) : 0;
+  const totalRoomBookings = reservations?.filter(reservation => 
+    reservation?.status === 'Checked In' || reservation?.status === 'Checked Out').length || 0;
+  
+  // Map database report to component format
+  const mapDbReportToComponentFormat = (dbReport) => {
+    return {
+      id: dbReport.id,
+      name: dbReport.name,
+      date: dbReport.date,
+      type: dbReport.type,
+      format: dbReport.format || dbReport.type?.toLowerCase(),
+      generatedBy: dbReport.generated_by,
+      filename: dbReport.filename,
+      fileContent: dbReport.file_content,
+      previewData: dbReport.preview_data
+    };
+  };
+
+  // Load report history from Supabase when component mounts
   useEffect(() => {
-    const savedHistory = localStorage.getItem('reportHistory');
-    if (savedHistory) {
+    const fetchReportHistory = async () => {
       try {
-        setReportHistory(JSON.parse(savedHistory));
+        // Get reports from Supabase
+        const { data, error } = await supabase
+          .from('reports')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          console.error('Error fetching report history:', error);
+          return;
+        }
+        
+        if (data) {
+          // Map database format to component format
+          const formattedReports = data.map(mapDbReportToComponentFormat);
+          setReportHistory(formattedReports);
+        }
       } catch (error) {
-        console.error('Error parsing saved report history:', error);
+        console.error('Error fetching report history:', error);
       }
-    }
+    };
+    
+    fetchReportHistory();
   }, []);
   
-  // Save report history to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('reportHistory', JSON.stringify(reportHistory));
-  }, [reportHistory]);
+  // Save report history to Supabase when it changes
+  const saveReportToSupabase = async (newReport) => {
+    try {
+      console.log(`Attempting to save report to Supabase: ${newReport.name}, ID: ${newReport.id}, Format: ${newReport.format}`);
+      
+      // Verify the report data before saving
+      if (!newReport.id || !newReport.name || !newReport.fileContent) {
+        console.error('Invalid report data:', newReport);
+        throw new Error('Invalid report data for saving to Supabase');
+      }
+      
+      const { data, error } = await supabase
+        .from('reports')
+        .insert([{
+          id: newReport.id,
+          name: newReport.name,
+          date: newReport.date,
+          type: newReport.type,
+          format: newReport.format || newReport.type?.toLowerCase(),
+          generated_by: newReport.generatedBy,
+          filename: newReport.filename,
+          file_content: newReport.fileContent,
+          preview_data: newReport.previewData,
+          created_at: new Date().toISOString()
+        }]);
+        
+      if (error) {
+        console.error('Supabase error saving report:', error);
+        throw error;
+      }
+      
+      console.log(`Successfully saved report to Supabase, data:`, data ? `Received data with ${data.length} records` : 'No data returned');
+      return data;
+    } catch (error) {
+      console.error('Error saving report to Supabase:', error);
+      throw error;
+    }
+  };
   
   // Delete a report from history
-  const deleteReport = (reportId) => {
-    setReportHistory(prevHistory => prevHistory.filter(report => report.id !== reportId));
+  const deleteReport = async (reportId) => {
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportId);
+        
+      if (error) {
+        console.error('Error deleting report:', error);
+        throw error;
+      }
+      
+      // Update local state after successful deletion
+      setReportHistory(prevHistory => prevHistory.filter(report => report.id !== reportId));
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      toast.error('Failed to delete report. Please try again.');
+    }
   };
   
   // Open preview modal
-  const openPreviewModal = (report, tab = 'preview') => {
+  const openPreviewModal = (report) => {
     setSelectedReport(report);
-    setPreviewModalOpen(true);
+    setShowPreviewModal(true);
   };
   
   // Open share modal
   const openShareModal = (report) => {
     setSelectedReport(report);
-    setPreviewModalOpen(true);
+    setShowPreviewModal(true);
   };
   
   // Report type options
@@ -375,15 +529,22 @@ const Reports = () => {
         // 3. Fetch housekeeping data
         let { data: housekeepingTasks, error: housekeepingError } = await supabase
           .from('tasks')
-          .select('*')
-          .eq('type', 'Housekeeping');
+          .select('*');
+          // Removed filtering by type since the column doesn't exist
           
         if (housekeepingError) {
           console.error('Error fetching housekeeping data:', housekeepingError);
           housekeepingTasks = [];
         }
         
-        setHousekeepingData(housekeepingTasks || []);
+        // If needed, filter housekeeping tasks after fetching
+        const filteredHousekeepingTasks = housekeepingTasks?.filter(task => 
+          task.category === 'Housekeeping' || 
+          task.task_type === 'Housekeeping' || 
+          task.department === 'Housekeeping'
+        ) || [];
+        
+        setHousekeepingData(filteredHousekeepingTasks);
         
         // 4. Prepare monthly performance data
         // Group financial data by month
@@ -516,57 +677,90 @@ const Reports = () => {
     fetchData();
   }, [dateRange, rooms, reservations, revenue]);
   
-  // Initialize charts when data is loaded and on theme changes
+  // Ensure charts are reinitialized when dark mode changes
   useEffect(() => {
-    if (!isLoading && 
-        revenueData && revenueData.dates && revenueData.values && 
-        Array.isArray(revenueData.dates) && revenueData.dates.length > 0 && 
-        Array.isArray(revenueData.values) && revenueData.values.length > 0) {
-      initializeRevenueChart();
-      initializeOccupancyChart();
-    }
-  }, [isLoading, theme, revenueData, occupancyData]);
-
-  // Initialize revenue chart
-  const initializeRevenueChart = () => {
-    if (!revenueChartRef.current || !revenueData || !revenueData.dates || !revenueData.values ||
-        !Array.isArray(revenueData.dates) || !revenueData.dates.length ||
-        !Array.isArray(revenueData.values) || !revenueData.values.length) {
-      return;
-    }
-
-    // Dispose previous chart instance if it exists
+    if (!revenueChartRef.current || !occupancyChartRef.current || isLoading) return;
+    
+    // Dispose of existing chart instances
     if (revenueChartInstance.current) {
       revenueChartInstance.current.dispose();
     }
     
-    // Initialize new chart
-    revenueChartInstance.current = echarts.init(revenueChartRef.current);
+    if (occupancyChartInstance.current) {
+      occupancyChartInstance.current.dispose();
+    }
+    
+    // Create new chart instances with the correct theme
+    revenueChartInstance.current = echarts.init(revenueChartRef.current, darkMode ? 'dark' : null);
+    occupancyChartInstance.current = echarts.init(occupancyChartRef.current, darkMode ? 'dark' : null);
+    
+    // Render charts with the current data
+    renderRevenueChart();
+    renderOccupancyChart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [darkMode, isLoading]);
+  
+  // Create and initialize charts when data is available
+  useEffect(() => {
+    if (isLoading || !revenueChartRef.current || !occupancyChartRef.current) return;
+    
+    // Initialize ECharts instances
+    if (revenueChartInstance.current) {
+      revenueChartInstance.current.dispose();
+    }
+    
+    if (occupancyChartInstance.current) {
+      occupancyChartInstance.current.dispose();
+    }
+    
+    // Create new chart instances with proper theme
+    revenueChartInstance.current = echarts.init(revenueChartRef.current, darkMode ? 'dark' : null);
+    occupancyChartInstance.current = echarts.init(occupancyChartRef.current, darkMode ? 'dark' : null);
+    
+    renderRevenueChart();
+    renderOccupancyChart();
+    
+    // Add resize event listener
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      revenueChartInstance.current?.dispose();
+      occupancyChartInstance.current?.dispose();
+    };
+  }, [isLoading, revenueData, occupancyData, rooms, darkMode]);
+  
+  // Handle window resize
+  const handleResize = () => {
+    revenueChartInstance.current?.resize();
+    occupancyChartInstance.current?.resize();
+  };
+  
+  // Render revenue chart
+  const renderRevenueChart = () => {
+    if (!revenueChartInstance.current || !revenueData.dates || !revenueData.values) return;
     
     const option = {
+      title: {
+        text: 'Daily Revenue',
+        textStyle: {
+          color: darkMode ? '#ccc' : '#333'
+        }
+      },
       tooltip: {
         trigger: 'axis',
-        axisPointer: {
-          type: 'line'
-        },
         formatter: function(params) {
-          // Make sure we're working with the correct data point
-          if (!params || !params[0]) return '';
-          
+          const dateStr = params[0].axisValue;
           const revenueValue = params[0].value;
-          const dateStr = params[0].name;
-          
-          // Calculate percentage of total revenue
-          const percentOfTotal = totalRevenue > 0 ? ((revenueValue / totalRevenue) * 100).toFixed(1) : 0;
-          
-          // Format the revenue with Ghana Cedis symbol
-          const formattedRevenue = `GH₵${revenueValue.toLocaleString()}`;
+          const formattedRevenue = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(revenueValue);
           
           // Return a completely custom tooltip with no default formatting
           return `<div style="padding: 8px;">
                     <div style="margin-bottom: 5px;"><strong>Date:</strong> ${dateStr}</div>
-                    <div style="margin-bottom: 5px;"><strong>Revenue:</strong> ${formattedRevenue}</div>
-                    <div><strong>Percentage of Total:</strong> ${percentOfTotal}%</div>
+                    <div><strong>Revenue:</strong> ${formattedRevenue}</div>
                   </div>`;
         }
       },
@@ -578,86 +772,66 @@ const Reports = () => {
       },
       xAxis: {
         type: 'category',
-        boundaryGap: false,
+        boundaryGap: true,
         data: revenueData.dates,
         axisLabel: {
-          color: isDarkMode ? '#ccc' : '#333'
+          color: darkMode ? '#ccc' : '#333'
         }
       },
       yAxis: {
         type: 'value',
         axisLabel: {
-          formatter: 'GH₵{value}',
-          color: isDarkMode ? '#ccc' : '#333'
+          color: darkMode ? '#ccc' : '#333'
         }
       },
       series: [
         {
           name: 'Revenue',
           type: 'line',
-          stack: 'Total',
+          smooth: true,
+          lineStyle: {
+            width: 3,
+            color: '#3a7bd5'
+          },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: isDarkMode ? 'rgba(58, 123, 213, 0.8)' : 'rgba(58, 123, 213, 0.8)' },
-              { offset: 1, color: isDarkMode ? 'rgba(58, 123, 213, 0.1)' : 'rgba(58, 123, 213, 0.1)' }
+              { offset: 0, color: darkMode ? 'rgba(58, 123, 213, 0.8)' : 'rgba(58, 123, 213, 0.8)' },
+              { offset: 1, color: darkMode ? 'rgba(58, 123, 213, 0.1)' : 'rgba(58, 123, 213, 0.1)' }
             ])
           },
           emphasis: {
             focus: 'series'
           },
-          itemStyle: {
-            color: '#3a7bd5'
-          },
-          smooth: true,
           data: revenueData.values
         }
       ],
-      backgroundColor: isDarkMode ? '#1f2937' : '#fff'
+      backgroundColor: darkMode ? '#1f2937' : '#fff'
     };
     
     revenueChartInstance.current.setOption(option);
   };
-
-  // Initialize occupancy chart
-  const initializeOccupancyChart = () => {
-    if (!occupancyChartRef.current || !occupancyData || !occupancyData.dates || !occupancyData.values ||
-        !Array.isArray(occupancyData.dates) || !occupancyData.dates.length ||
-        !Array.isArray(occupancyData.values) || !occupancyData.values.length) {
-      return;
-    }
-
-    // Dispose previous chart instance if it exists
-    if (occupancyChartInstance.current) {
-      occupancyChartInstance.current.dispose();
-    }
-    
-    // Initialize new chart
-    occupancyChartInstance.current = echarts.init(occupancyChartRef.current);
-    
-    // Calculate average revenue per occupied room for tooltip
-    const avgRevenuePerRoom = totalRevenue / (occupancyData.values.reduce((sum, occ) => sum + occ, 0) || 1);
+  
+  // Render occupancy chart
+  const renderOccupancyChart = () => {
+    if (!occupancyChartInstance.current || !occupancyData.dates || !occupancyData.values) return;
     
     const option = {
+      title: {
+        text: 'Daily Occupancy',
+        textStyle: {
+          color: darkMode ? '#ccc' : '#333'
+        }
+      },
       tooltip: {
         trigger: 'axis',
-        axisPointer: {
-          type: 'shadow'
-        },
         formatter: function(params) {
-          // Make sure we're working with the correct data point
-          if (!params || !params[0]) return '';
-          
+          const dateStr = params[0].axisValue;
           const occupancyValue = params[0].value;
-          const dateStr = params[0].name;
-          
-          // Calculate the number of rooms occupied on this date based on the occupancy percentage
           const occupiedRooms = Math.round((occupancyValue / 100) * rooms.length);
-          
-          // Estimate revenue based on occupancy percentage and average revenue
-          const estimatedRevenue = (occupancyValue / 100) * avgRevenuePerRoom * rooms.length;
-          
-          // Format the revenue with Ghana Cedis symbol
-          const formattedRevenue = `GH₵${Math.round(estimatedRevenue).toLocaleString()}`;
+          const formattedRevenue = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(occupiedRooms * 150); // Assuming average revenue per room
           
           // Return a completely custom tooltip with no default formatting
           return `<div style="padding: 8px;">
@@ -679,7 +853,7 @@ const Reports = () => {
         boundaryGap: true,
         data: occupancyData.dates,
         axisLabel: {
-          color: isDarkMode ? '#ccc' : '#333'
+          color: darkMode ? '#ccc' : '#333'
         }
       },
       yAxis: {
@@ -688,7 +862,7 @@ const Reports = () => {
         max: 100,
         axisLabel: {
           formatter: '{value}%',
-          color: isDarkMode ? '#ccc' : '#333'
+          color: darkMode ? '#ccc' : '#333'
         }
       },
       series: [
@@ -707,269 +881,1094 @@ const Reports = () => {
           data: occupancyData.values
         }
       ],
-      backgroundColor: isDarkMode ? '#1f2937' : '#fff'
+      backgroundColor: darkMode ? '#1f2937' : '#fff'
     };
     
     occupancyChartInstance.current.setOption(option);
   };
 
-  // Calculate total revenue (sum of all daily revenues)
-  const totalRevenue = (() => {
-    if (revenueData && revenueData.values && Array.isArray(revenueData.values) && revenueData.values.length > 0) {
-      return revenueData.values.reduce((sum, current) => sum + current, 0);
-    }
-    return 0;
-  })();
-
-  // Calculate average occupancy
-  const avgOccupancy = (() => {
-    if (occupancyData && occupancyData.values && Array.isArray(occupancyData.values) && occupancyData.values.length > 0) {
-      return Math.round(occupancyData.values.reduce((sum, current) => sum + current, 0) / occupancyData.values.length);
-    }
-    return 0;
-  })();
-  
-  // Calculate total room bookings from actual reservation data
-  const totalRoomBookings = (() => {
-    if (reservations && Array.isArray(reservations)) {
-      // Filter reservations based on the selected date range
-      let days = 7;
-      switch(dateRange) {
-        case '30days':
-          days = 30;
-          break;
-        case '90days':
-          days = 90;
-          break;
-        case '12months':
-          days = 365;
-          break;
-        default:
-          days = 7;
-      }
-      
-      const fromDate = subDays(new Date(), days);
-      
-      // Count reservations within the date range
-      return reservations.filter(reservation => {
-        if (!reservation.check_in_date) return false;
-        const reservationDate = parseISO(reservation.check_in_date);
-        return isAfter(reservationDate, fromDate) || format(reservationDate, 'yyyy-MM-dd') === format(fromDate, 'yyyy-MM-dd');
-      }).length;
-    }
-    return 0;
-  })();
-
-  // Generate and download reports
-  const generateReport = async (format) => {
+  // Function to generate a report
+  const generateReport = async (reportType = 'summary', reportFormat = 'pdf') => {
     setIsGenerating(true);
     
     try {
-      let filename = '';
+      // Generate a filename based on current date
+      const currentDate = new Date();
+      const formattedDate = format(currentDate, 'yyyy-MM-dd');
+      const reportName = `Mikjane_Hotel_${reportType.charAt(0).toUpperCase() + reportType.slice(1)}_Report`;
+      let fileName = `${reportName}_${formattedDate}`;
       let fileContent = null;
-      let previewData = null;
       
-      switch(format) {
+      console.log(`Generating ${reportType} report in ${reportFormat} format...`);
+      
+      // Generate the appropriate report based on format
+      let reportPromise;
+      
+      switch(reportFormat) {
         case 'pdf':
-          const result = generatePdfReport(selectedReportType);
-          filename = result.filename;
-          fileContent = result.fileContent;
+          // PDF reports
+          fileName += '.pdf';
+          console.log(`Creating PDF report: ${fileName}, type: ${reportType}`);
+          reportPromise = generatePdfReport(reportType, fileName);
           break;
+          
         case 'excel':
-          const excelResult = generateExcelReport(selectedReportType);
-          filename = excelResult.filename;
-          fileContent = excelResult.fileContent;
-          previewData = excelResult.previewData;
+          // Excel reports
+          fileName += '.xlsx';
+          console.log(`Creating Excel report: ${fileName}, type: ${reportType}`);
+          reportPromise = generateExcelReport(reportType, fileName);
           break;
+          
         case 'csv':
-          const csvResult = generateCsvReport(selectedReportType);
-          filename = csvResult.filename;
-          fileContent = csvResult.fileContent;
-          previewData = csvResult.previewData;
+          // CSV reports
+          fileName += '.csv';
+          console.log(`Creating CSV report: ${fileName}, type: ${reportType}`);
+          reportPromise = generateCsvReport(reportType, fileName);
           break;
+          
+        default:
+          // Default to PDF
+          fileName += '.pdf';
+          console.log(`Creating default PDF report: ${fileName}, type: ${reportType}`);
+          reportPromise = generatePdfReport(reportType, fileName);
       }
-
-      if (!filename) {
-        showToast('Failed to generate report. Please try again.', 'error');
-        return;
+      
+      // Wait for the report to be generated
+      console.log(`Waiting for ${reportFormat} report generation to complete...`);
+      const result = await reportPromise;
+      console.log(`Report generation completed, result:`, result ? 'Result received' : 'No result');
+      
+      fileName = result.filename;
+      fileContent = result.fileContent;
+      
+      if (!fileContent) {
+        console.error(`Generated report has no content for type: ${reportType}`);
+        throw new Error('Report generation failed: Empty content');
       }
-
-      // Add to report history
+      
+      // Show success message
+      toast.success(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated successfully!`);
+      
+      // Create a new report object
       const newReport = {
-        id: Date.now(), // Using timestamp as a simple unique ID
-        name: filename.replace('.pdf', '').replace('.xlsx', '').replace('.csv', '').replace('Mikjane_Hotel_', '').replaceAll('_', ' '),
-        date: format(new Date(), 'MMM dd, yyyy'),
-        type: format.toUpperCase(),
-        generatedBy: 'User', // This could be enhanced with actual user info if available
-        filename: filename,
-        fileContent: fileContent, // Store the actual file content
-        previewData: previewData // For Excel/CSV data preview
+        id: uuidv4(),
+        name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
+        date: new Date().toISOString(),
+        type: reportFormat.toUpperCase(),
+        generatedBy: user?.username || 'Admin',
+        filename: fileName,
+        fileContent: fileContent,
+        previewData: fileContent,
+        format: reportFormat
       };
       
-      setReportHistory(prevHistory => [newReport, ...prevHistory]);
+      console.log(`Saving report to Supabase: ${newReport.name}, Format: ${reportFormat}, Type: ${reportType}, ID: ${newReport.id}`);
       
-      // Show success notification
-      showToast(`${format.toUpperCase()} report generated successfully!`);
+      // Add the new report to Supabase and update local state
+      try {
+        const savedData = await saveReportToSupabase(newReport);
+        console.log(`Successfully saved report to Supabase:`, savedData ? 'Data returned' : 'No data returned');
+        
+        // Update the UI with the new report
+        setReportHistory(prevHistory => {
+          const updatedHistory = [newReport, ...prevHistory];
+          console.log(`Updated report history in UI: ${updatedHistory.length} total reports`);
+          return updatedHistory;
+        });
+      } catch (saveError) {
+        console.error('Error saving report to Supabase:', saveError);
+        toast.error('Report generated but could not be saved to database. Using local memory instead.');
+        
+        // Still update UI even if save fails
+        setReportHistory(prevHistory => {
+          const updatedHistory = [newReport, ...prevHistory];
+          console.log(`Updated report history in UI memory only due to save error: ${updatedHistory.length} total reports`);
+          return updatedHistory;
+        });
+      }
+      
     } catch (error) {
       console.error('Error generating report:', error);
-      showToast(`Error generating ${format.toUpperCase()} report: ${error.message}`, 'error');
+      toast.error('Failed to generate report. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Generate PDF report with jsPDF
-  const generatePdfReport = (reportType = 'summary') => {
-    // Check if data is available
-    if (!revenueData || !revenueData.dates || !revenueData.values || 
-        !Array.isArray(revenueData.dates) || !revenueData.dates.length || 
-        !Array.isArray(revenueData.values) || !revenueData.values.length) {
-      console.error('Data not available for PDF generation');
-      return { filename: '', fileContent: null };
-    }
-    
-    // Create a new PDF document (A4 format in portrait)
-    const doc = new jsPDF();
-    
-    // Set default font to Inter-like sans-serif
-    doc.setFont('helvetica');
-    
-    // Add custom styling for a professional look
-    const styles = {
-      title: { fontSize: 22, fontStyle: 'bold', textColor: [0, 51, 102] },
-      subtitle: { fontSize: 12, textColor: [100, 100, 100] },
-      heading: { fontSize: 16, fontStyle: 'bold', textColor: [0, 0, 0] },
-      normal: { fontSize: 10, textColor: [0, 0, 0] },
-      tableHeader: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
-      tableRow: { fontSize: 9 },
-      tableRowAlternate: { fillColor: [240, 240, 240] },
-      footer: { fontSize: 8, textColor: [100, 100, 100] }
-    };
-
-    // Add a professional header with logo placeholder
-    const addHeader = () => {
-      // Draw a colored header bar
-      doc.setFillColor(41, 128, 185);
-      doc.rect(0, 0, 210, 15, 'F');
-      
-      // Add logo placeholder
-      doc.setFillColor(255, 255, 255);
-      doc.circle(15, 8, 5, 'F');
-      
-      // Add hotel name in header
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(12);
-      doc.text('MIKJANE HOTEL', 25, 9);
-      
-      // Add right-aligned date
-      const today = format(new Date(), 'MMM dd, yyyy');
-      doc.text(today, 195, 9, { align: 'right' });
-    };
-    
-    // Add footer with page number
-    const addFooter = (pageNumber) => {
-      const totalPages = doc.getNumberOfPages();
-      doc.setPage(pageNumber);
-      doc.setFontSize(styles.footer.fontSize);
-      doc.setTextColor(...styles.footer.textColor);
-      doc.text(`Page ${pageNumber} of ${totalPages}`, 195, 285, { align: 'right' });
-      doc.text('Mikjane Hotel Management System', 15, 285);
-    };
-    
-    // Apply header to all pages
-    const addHeaderFooterToAllPages = () => {
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        addHeader();
-        addFooter(i);
+  // Generate PDF report based on type
+  const generatePdfReport = async (reportType, filename) => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create new PDF document
+        const doc = new jsPDF();
+        
+        // Define styles for different text elements
+        const styles = {
+          title: {
+            fontSize: 18,
+            textColor: [0, 0, 0]
+          },
+          subtitle: {
+            fontSize: 12,
+            textColor: [100, 100, 100]
+          },
+          heading: {
+            fontSize: 14,
+            textColor: [0, 0, 0]
+          },
+          normal: {
+            fontSize: 10,
+            textColor: [0, 0, 0]
+          },
+          tableHeader: {
+            fontSize: 10,
+            textColor: [255, 255, 255],
+            fillColor: [41, 128, 185],
+            fontStyle: 'bold'
+          },
+          tableRow: {
+            fontSize: 9,
+            textColor: [0, 0, 0]
+          },
+          tableRowAlternate: {
+            fillColor: [240, 240, 240]
+          }
+        };
+        
+        // Generate appropriate report based on type
+        switch(reportType) {
+          case 'summary':
+            generateSummaryPdfReport(doc, styles);
+            break;
+          case 'financial':
+            generateFinancialPdfReport(doc, styles);
+            break;
+          case 'occupancy':
+            generateOccupancyPdfReport(doc, styles);
+            break;
+          case 'guests':
+            generateGuestPdfReport(doc, styles);
+            break;
+          case 'housekeeping':
+            generateHousekeepingPdfReport(doc, styles);
+            break;
+          case 'monthly':
+            generateMonthlyPdfReport(doc, styles);
+            break;
+          default:
+            generateSummaryPdfReport(doc, styles);
+        }
+        
+        // Add page numbers
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          const pageSize = doc.internal.pageSize;
+          const pageWidth = pageSize.width || pageSize.getWidth();
+          doc.setFontSize(9);
+          doc.setTextColor(150, 150, 150);
+          doc.text(`Page ${i} of ${pageCount}`, pageWidth - 30, doc.internal.pageSize.height - 10);
+        }
+        
+        // Save the PDF
+        const pdfOutput = doc.output('datauristring');
+        
+        // Resolve with the result
+        resolve({
+          filename: filename,
+          fileContent: pdfOutput
+        });
+      } catch (error) {
+        console.error('Error generating PDF report:', error);
+        reject(error);
       }
-    };
-    
-    // Generate current date string for filename
-    const currentDate = new Date();
-    const formattedDate = format(currentDate, 'yyyy-MM-dd');
-    let filename = `Mikjane_Hotel_Report_${formattedDate}.pdf`;
-    
-    // Add title and content based on report type
-    switch(reportType) {
-      case 'guests':
-        generateGuestsPdfReport(doc, styles);
-        filename = `Mikjane_Hotel_Guest_Report_${formattedDate}.pdf`;
-        break;
-      case 'financial':
-        generateFinancialPdfReport(doc, styles);
-        filename = `Mikjane_Hotel_Financial_Report_${formattedDate}.pdf`;
-        break;
-      case 'housekeeping':
-        generateHousekeepingPdfReport(doc, styles);
-        filename = `Mikjane_Hotel_Housekeeping_Report_${formattedDate}.pdf`;
-        break;
-      case 'occupancy':
-        generateOccupancyPdfReport(doc, styles);
-        filename = `Mikjane_Hotel_Occupancy_Report_${formattedDate}.pdf`;
-        break;
-      case 'monthly':
-        generateMonthlyPdfReport(doc, styles);
-        filename = `Mikjane_Hotel_Monthly_Report_${formattedDate}.pdf`;
-        break;
-      default:
-        generateSummaryPdfReport(doc, styles);
-        filename = `Mikjane_Hotel_Summary_Report_${formattedDate}.pdf`;
-    }
-    
-    // Apply headers and footers to all pages
-    addHeaderFooterToAllPages();
-    
-    // Get PDF as data URL for preview
-    const fileContent = doc.output('datauristring');
-    
-    // Save the PDF with formatted date
-    doc.save(filename);
-    
-    return { filename, fileContent };
+    });
   };
   
-  // Generate summary PDF report (Performance Summary)
+  // Basic Excel report generation
+  const generateExcelReport = async (reportType, filename) => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Placeholder for Excel report generation
+        // In a real implementation, you would create an Excel file using xlsx library
+        const workbook = XLSX.utils.book_new();
+        let data = [];
+        let headers = [];
+        
+        switch(reportType) {
+          case 'summary':
+            headers = ['Date', 'Revenue', 'Occupancy Rate'];
+            console.log("Generating summary Excel report with revenue data:", revenueData ? `Available (${revenueData.dates.length} dates)` : "Not available");
+            console.log("Occupancy data:", occupancyData ? `Available (${occupancyData.values.length} values)` : "Not available");
+            
+            if (!revenueData || !revenueData.dates || !revenueData.dates.length || 
+                !occupancyData || !occupancyData.values || !occupancyData.values.length) {
+              console.error("Missing required data for summary Excel report");
+              
+              // Create fallback data with current date if data is missing
+              const currentDate = format(new Date(), 'MMM dd');
+              data.push([currentDate, 0, '0%']);
+            } else {
+              // Add data from revenue and occupancy arrays
+              for (let i = 0; i < revenueData.dates.length; i++) {
+                data.push([
+                  revenueData.dates[i],
+                  revenueData.values[i],
+                  (occupancyData.values[i] || 0) + '%'
+                ]);
+              }
+            }
+            break;
+          
+          case 'financial':
+            // Financial report data
+            headers = ['Invoice #', 'Guest', 'Room', 'Amount', 'Date', 'Status'];
+            data = financialData.map(invoice => [
+              invoice.invoice_number || 'N/A',
+              invoice.guest_name || 'N/A',
+              invoice.room_id || 'N/A',
+              invoice.amount || '0',
+              invoice.created_at || 'N/A',
+              invoice.status || 'N/A'
+            ]);
+            break;
+          
+          case 'housekeeping':
+            // Housekeeping report data
+            headers = ['Task ID', 'Description', 'Room', 'Status', 'Assigned To', 'Due Date'];
+            data = housekeepingData.map(task => [
+              task.id || 'N/A',
+              task.description || task.task_description || 'N/A',
+              task.room_id || task.room || 'N/A',
+              task.status || 'N/A',
+              task.assigned_to || 'N/A',
+              task.due_date || task.created_at || 'N/A'
+            ]);
+            break;
+            
+          case 'monthly':
+            // Monthly report data
+            headers = ['Month', 'Revenue', 'Pending Amount', 'Invoice Count', 'Paid Count', 'Pending Count'];
+            data = Object.entries(monthlyPerformanceData).map(([month, data]) => [
+              month,
+              data.revenue || 0,
+              data.pendingAmount || 0,
+              data.invoiceCount || 0,
+              data.paidCount || 0,
+              data.pendingCount || 0
+            ]);
+            break;
+            
+          case 'guests':
+            // Guest report data
+            headers = ['Name', 'Email', 'Phone', 'Room', 'Check-In', 'Check-Out', 'Status'];
+            data = guestData.map(guest => [
+              guest.name || guest.guest_name || 'N/A',
+              guest.email || 'N/A',
+              guest.phone || 'N/A',
+              guest.room_id || guest.room || 'N/A',
+              guest.checkIn || guest.check_in || 'N/A',
+              guest.checkOut || guest.check_out || 'N/A',
+              guest.status || 'N/A'
+            ]);
+            break;
+            
+          default:
+            headers = ['Date', 'Revenue', 'Occupancy Rate'];
+            console.log("Generating default Excel/CSV report with revenue data:", revenueData ? `Available (${revenueData.dates.length} dates)` : "Not available");
+            console.log("Occupancy data:", occupancyData ? `Available (${occupancyData.values.length} values)` : "Not available");
+            
+            if (!revenueData || !revenueData.dates || !revenueData.dates.length || 
+                !occupancyData || !occupancyData.values || !occupancyData.values.length) {
+              console.error("Missing required data for default report");
+              
+              // Create fallback data with current date if data is missing
+              const currentDate = format(new Date(), 'MMM dd');
+              data.push([currentDate, 0, '0%']);
+            } else {
+              // Add data from revenue and occupancy arrays
+              for (let i = 0; i < revenueData.dates.length; i++) {
+                data.push([
+                  revenueData.dates[i],
+                  revenueData.values[i],
+                  (occupancyData.values[i] || 0) + '%'
+                ]);
+              }
+            }
+        }
+        
+        // Create worksheet and add to workbook
+        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+        XLSX.utils.book_append_sheet(workbook, worksheet, reportType.charAt(0).toUpperCase() + reportType.slice(1));
+        
+        // Convert workbook to binary string
+        const excelOutput = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+        
+        // Create a preview for display
+        const previewData = {
+          headers: headers,
+          rows: data.slice(0, 10) // Limit preview to first 10 rows
+        };
+        
+        // Resolve with the result
+        resolve({
+          filename: filename,
+          fileContent: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${excelOutput}`,
+          previewData: previewData
+        });
+      } catch (error) {
+        console.error('Error generating Excel report:', error);
+        reject(error);
+      }
+    });
+  };
+  
+  // Basic CSV report generation
+  const generateCsvReport = async (reportType, filename) => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Placeholder for CSV report generation
+        let csvContent = '';
+        let headers = [];
+        let data = [];
+        
+        switch(reportType) {
+          case 'summary':
+            headers = ['Date', 'Revenue', 'Occupancy Rate'];
+            console.log("Generating summary CSV report with revenue data:", revenueData ? `Available (${revenueData.dates.length} dates)` : "Not available");
+            console.log("Occupancy data:", occupancyData ? `Available (${occupancyData.values.length} values)` : "Not available");
+            
+            if (!revenueData || !revenueData.dates || !revenueData.dates.length || 
+                !occupancyData || !occupancyData.values || !occupancyData.values.length) {
+              console.error("Missing required data for summary CSV report");
+              
+              // Create fallback data with current date if data is missing
+              const currentDate = format(new Date(), 'MMM dd');
+              data.push([currentDate, 0, '0%']);
+            } else {
+              // Add data from revenue and occupancy arrays
+              for (let i = 0; i < revenueData.dates.length; i++) {
+                data.push([
+                  revenueData.dates[i],
+                  revenueData.values[i],
+                  (occupancyData.values[i] || 0) + '%'
+                ]);
+              }
+            }
+            break;
+          
+          case 'financial':
+            // Financial report data
+            headers = ['Invoice #', 'Guest', 'Room', 'Amount', 'Date', 'Status'];
+            data = financialData.map(invoice => [
+              invoice.invoice_number || 'N/A',
+              invoice.guest_name || 'N/A',
+              invoice.room_id || 'N/A',
+              invoice.amount || '0',
+              invoice.created_at || 'N/A',
+              invoice.status || 'N/A'
+            ]);
+            break;
+          
+          case 'housekeeping':
+            // Housekeeping report data
+            headers = ['Task ID', 'Description', 'Room', 'Status', 'Assigned To', 'Due Date'];
+            data = housekeepingData.map(task => [
+              task.id || 'N/A',
+              task.description || task.task_description || 'N/A',
+              task.room_id || task.room || 'N/A',
+              task.status || 'N/A',
+              task.assigned_to || 'N/A',
+              task.due_date || task.created_at || 'N/A'
+            ]);
+            break;
+            
+          case 'monthly':
+            // Monthly report data
+            headers = ['Month', 'Revenue', 'Pending Amount', 'Invoice Count', 'Paid Count', 'Pending Count'];
+            data = Object.entries(monthlyPerformanceData).map(([month, data]) => [
+              month,
+              data.revenue || 0,
+              data.pendingAmount || 0,
+              data.invoiceCount || 0,
+              data.paidCount || 0,
+              data.pendingCount || 0
+            ]);
+            break;
+            
+          case 'guests':
+            // Guest report data
+            headers = ['Name', 'Email', 'Phone', 'Room', 'Check-In', 'Check-Out', 'Status'];
+            data = guestData.map(guest => [
+              guest.name || guest.guest_name || 'N/A',
+              guest.email || 'N/A',
+              guest.phone || 'N/A',
+              guest.room_id || guest.room || 'N/A',
+              guest.checkIn || guest.check_in || 'N/A',
+              guest.checkOut || guest.check_out || 'N/A',
+              guest.status || 'N/A'
+            ]);
+            break;
+            
+          default:
+            headers = ['Date', 'Revenue', 'Occupancy Rate'];
+            for (let i = 0; i < revenueData.dates.length; i++) {
+              data.push([
+                revenueData.dates[i],
+                revenueData.values[i],
+                occupancyData.values[i] + '%'
+              ]);
+            }
+        }
+        
+        // Add headers to CSV
+        csvContent += headers.join(',') + '\r\n';
+        
+        // Add data rows to CSV
+        data.forEach(row => {
+          csvContent += row.join(',') + '\r\n';
+        });
+        
+        // Create a preview for display
+        const previewData = {
+          headers: headers,
+          rows: data.slice(0, 10) // Limit preview to first 10 rows
+        };
+        
+        // Convert to base64
+        const csvBase64 = btoa(csvContent);
+        
+        // Resolve with the result
+        resolve({
+          filename: filename,
+          fileContent: `data:text/csv;base64,${csvBase64}`,
+          previewData: previewData
+        });
+      } catch (error) {
+        console.error('Error generating CSV report:', error);
+        reject(error);
+      }
+    });
+  };
+
+  // Generate Summary PDF report
   const generateSummaryPdfReport = (doc, styles) => {
+    try {
+      console.log("Starting to generate Summary PDF report");
+      console.log("Revenue data:", revenueData ? `Available (${revenueData.dates.length} data points)` : "Not available");
+      console.log("Occupancy data:", occupancyData ? `Available (${occupancyData.values.length} data points)` : "Not available");
+      
+      // Add title and date
+      doc.setFontSize(styles.title.fontSize);
+      doc.setTextColor(...styles.title.textColor);
+      doc.text('Mikjane Hotel - Summary Report', 15, 30);
+      console.log("Added title to PDF");
+      
+      // Add date range
+      doc.setFontSize(styles.subtitle.fontSize);
+      doc.setTextColor(...styles.subtitle.textColor);
+      if (revenueData && revenueData.dates && revenueData.dates.length > 0) {
+        doc.text(`Date Range: ${revenueData.dates[0]} - ${revenueData.dates[revenueData.dates.length - 1]}`, 15, 40);
+      } else {
+        doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 15, 40);
+      }
+      console.log("Added date range to PDF");
+      
+      // Add key metrics section
+      doc.setFontSize(styles.heading.fontSize);
+      doc.setTextColor(...styles.heading.textColor);
+      doc.text('Key Performance Metrics', 15, 55);
+      
+      // Add metrics in a visually appealing box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(229, 231, 235);
+      doc.roundedRect(15, 60, 180, 50, 3, 3, 'FD');
+      
+      doc.setFontSize(styles.normal.fontSize);
+      doc.text(`Total Revenue: GH₵${totalRevenue.toLocaleString()}`, 25, 70);
+      doc.text(`Average Occupancy: ${avgOccupancy}%`, 25, 80);
+      doc.text(`Total Room Bookings: ${totalRoomBookings}`, 25, 90);
+      doc.text(`Pending Payments: GH₵${pendingPayments.toLocaleString()}`, 25, 100);
+      console.log("Added key metrics to PDF");
+      
+      // Revenue Analysis
+      doc.setFontSize(styles.heading.fontSize);
+      doc.text('Revenue Analysis', 15, 125);
+      
+      // Calculate revenue trend
+      let revenueTrend = "stable";
+      if (revenueData && revenueData.values && revenueData.values.length > 1) {
+        const firstHalf = revenueData.values.slice(0, Math.floor(revenueData.values.length / 2));
+        const secondHalf = revenueData.values.slice(Math.floor(revenueData.values.length / 2));
+        const firstHalfAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
+        const secondHalfAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
+        
+        if (secondHalfAvg > firstHalfAvg * 1.1) {
+          revenueTrend = "increasing";
+        } else if (secondHalfAvg < firstHalfAvg * 0.9) {
+          revenueTrend = "decreasing";
+        }
+      }
+      
+      // Calculate peak revenue day
+      let peakRevenueDay = "";
+      let peakRevenueAmount = 0;
+      if (revenueData && revenueData.values && revenueData.values.length > 0) {
+        for (let i = 0; i < revenueData.values.length; i++) {
+          if (revenueData.values[i] > peakRevenueAmount) {
+            peakRevenueAmount = revenueData.values[i];
+            peakRevenueDay = revenueData.dates[i];
+          }
+        }
+      }
+      console.log("Calculated revenue trends");
+      
+      // Create multiline text for revenue insights
+      const revenueInsights = [
+        `Total revenue generated is GH₵${totalRevenue.toLocaleString()}.`,
+        `Revenue trend is ${revenueTrend} over the reporting period.`,
+        peakRevenueDay ? `Peak revenue of GH₵${peakRevenueAmount.toLocaleString()} was recorded on ${peakRevenueDay}.` : '',
+        `Pending payments account for GH₵${pendingPayments.toLocaleString()}, which is ${totalRevenue > 0 ? ((pendingPayments / totalRevenue) * 100).toFixed(1) : 0}% of total revenue.`
+      ].filter(Boolean);
+      
+      // Add the multiline text
+      revenueInsights.forEach((insight, index) => {
+        doc.text(insight, 20, 135 + (index * 7));
+      });
+      console.log("Added revenue insights to PDF");
+      
+      // Add chart image for revenue if available
+      if (revenueChartInstance && revenueChartInstance.current) {
+        try {
+          console.log("Attempting to add revenue chart to PDF");
+          // Create a temporary canvas for the chart
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = 500;
+          tempCanvas.height = 300;
+          document.body.appendChild(tempCanvas);
+          
+          // Create a temporary chart instance
+          const tempChart = echarts.init(tempCanvas);
+          const option = revenueChartInstance.current.getOption();
+          tempChart.setOption(option);
+          
+          // Get the chart as an image
+          const dataURL = tempChart.getDataURL({
+            type: 'png',
+            pixelRatio: 2,
+            backgroundColor: '#fff'
+          });
+          
+          // Add the image to the PDF
+          doc.text('Revenue Trend Chart', 15, 165);
+          doc.addImage(dataURL, 'PNG', 15, 170, 180, 100);
+          
+          // Clean up
+          tempChart.dispose();
+          document.body.removeChild(tempCanvas);
+          console.log("Successfully added revenue chart to PDF");
+        } catch (err) {
+          console.error('Error adding revenue chart to PDF:', err);
+          // Continue without the chart if there's an error
+          doc.text('Revenue chart could not be generated', 15, 165);
+        }
+      } else {
+        console.log("Revenue chart not available, skipping");
+        doc.text('Revenue chart not available', 15, 165);
+      }
+      
+      // Add a new page for occupancy data
+      doc.addPage();
+      console.log("Added new page for occupancy data");
+      
+      // Add title
+      doc.setFontSize(styles.title.fontSize);
+      doc.text('Occupancy Insights', 15, 30);
+      
+      // Occupancy Analysis
+      doc.setFontSize(styles.heading.fontSize);
+      doc.text('Occupancy Analysis', 15, 45);
+      
+      // Calculate occupancy trend
+      let occupancyTrend = "stable";
+      
+      try {
+        if (occupancyData && occupancyData.values && occupancyData.values.length > 1) {
+          const firstHalf = occupancyData.values.slice(0, Math.floor(occupancyData.values.length / 2));
+          const secondHalf = occupancyData.values.slice(Math.floor(occupancyData.values.length / 2));
+          const firstHalfAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
+          const secondHalfAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
+          
+          if (secondHalfAvg > firstHalfAvg * 1.1) {
+            occupancyTrend = "increasing";
+          } else if (secondHalfAvg < firstHalfAvg * 0.9) {
+            occupancyTrend = "decreasing";
+          }
+        }
+        
+        // Calculate peak occupancy day
+        let peakOccupancyDay = "";
+        let peakOccupancyRate = 0;
+        if (occupancyData && occupancyData.values && occupancyData.values.length > 0) {
+          for (let i = 0; i < occupancyData.values.length; i++) {
+            if (occupancyData.values[i] > peakOccupancyRate) {
+              peakOccupancyRate = occupancyData.values[i];
+              peakOccupancyDay = occupancyData.dates[i];
+            }
+          }
+        }
+        console.log("Calculated occupancy trends");
+        
+        // Create multiline text for occupancy insights
+        const occupancyInsights = [
+          `Average occupancy rate is ${avgOccupancy}%.`,
+          `Occupancy trend is ${occupancyTrend} over the reporting period.`,
+          peakOccupancyDay ? `Peak occupancy of ${peakOccupancyRate}% was recorded on ${peakOccupancyDay}.` : '',
+          `Estimated revenue per occupied room: GH₵${(totalRevenue / (avgOccupancy > 0 ? avgOccupancy / 100 : 1) / (rooms.length || 1)).toFixed(2)}`
+        ].filter(Boolean);
+        
+        // Add the multiline text
+        occupancyInsights.forEach((insight, index) => {
+          doc.text(insight, 20, 55 + (index * 7));
+        });
+        console.log("Added occupancy insights to PDF");
+        
+        // Add chart image for occupancy if available
+        if (occupancyChartInstance && occupancyChartInstance.current) {
+          try {
+            console.log("Attempting to add occupancy chart to PDF");
+            // Create a temporary canvas for the chart
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 500;
+            tempCanvas.height = 300;
+            document.body.appendChild(tempCanvas);
+            
+            // Create a temporary chart instance
+            const tempChart = echarts.init(tempCanvas);
+            const option = occupancyChartInstance.current.getOption();
+            tempChart.setOption(option);
+            
+            // Get the chart as an image
+            const dataURL = tempChart.getDataURL({
+              type: 'png',
+              pixelRatio: 2,
+              backgroundColor: '#fff'
+            });
+            
+            // Add the image to the PDF
+            doc.text('Occupancy Trend Chart', 15, 90);
+            doc.addImage(dataURL, 'PNG', 15, 95, 180, 100);
+            
+            // Clean up
+            tempChart.dispose();
+            document.body.removeChild(tempCanvas);
+            console.log("Successfully added occupancy chart to PDF");
+          } catch (err) {
+            console.error('Error adding occupancy chart to PDF:', err);
+            // Continue without the chart if there's an error
+            doc.text('Occupancy chart could not be generated', 15, 90);
+          }
+        } else {
+          console.log("Occupancy chart not available, skipping");
+          doc.text('Occupancy chart not available', 15, 90);
+        }
+        
+        // Add a new page for guest demographics
+        doc.addPage();
+        console.log("Added new page for guest demographics");
+        
+        // Add title
+        doc.setFontSize(styles.title.fontSize);
+        doc.text('Guest Demographics', 15, 30);
+        
+        // Check if guest data is available
+        if (guestData && Array.isArray(guestData) && guestData.length > 0) {
+          try {
+            console.log("Processing guest data for demographics");
+            // Count by status
+            const statusCounts = guestData.reduce((acc, guest) => {
+              const status = guest.status || 'Unknown';
+              acc[status] = (acc[status] || 0) + 1;
+              return acc;
+            }, {});
+            
+            // Calculate average stay duration (in days)
+            const stayDurations = guestData
+              .filter(guest => guest.checkIn && guest.checkOut)
+              .map(guest => {
+                try {
+                  const checkIn = parseISO(guest.checkIn);
+                  const checkOut = parseISO(guest.checkOut);
+                  return differenceInDays(checkOut, checkIn);
+                } catch (e) {
+                  return 0;
+                }
+              })
+              .filter(days => days > 0);
+            
+            const avgStayDuration = stayDurations.length > 0
+              ? stayDurations.reduce((sum, days) => sum + days, 0) / stayDurations.length
+              : 0;
+            
+            // Calculate returning guests percentage
+            const returningGuests = guestData.filter(guest => guest.visits && guest.visits > 1).length;
+            const returningGuestsPercentage = (returningGuests / guestData.length) * 100;
+            
+            // Add guest demographics in a visually appealing box
+            doc.setFontSize(styles.heading.fontSize);
+            doc.text('Guest Statistics', 15, 45);
+            
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(15, 50, 180, 50, 3, 3, 'FD');
+            
+            doc.setFontSize(styles.normal.fontSize);
+            doc.text(`Total Guests: ${guestData.length}`, 25, 60);
+            
+            // Display status counts
+            let yPos = 70;
+            Object.entries(statusCounts).forEach(([status, count]) => {
+              const percentage = ((count / guestData.length) * 100).toFixed(1);
+              doc.text(`${status}: ${count} guests (${percentage}%)`, 25, yPos);
+              yPos += 7;
+            });
+            
+            // Add guest insights
+            doc.setFontSize(styles.heading.fontSize);
+            doc.text('Guest Insights', 15, 115);
+            
+            // Create multiline text for guest insights
+            const guestInsights = [
+              `Average stay duration: ${avgStayDuration.toFixed(1)} days.`,
+              `Returning guests: ${returningGuestsPercentage.toFixed(1)}% of total guests.`,
+              `Most common guest status: ${Object.entries(statusCounts).sort((a, b) => b[1] - a[1])[0][0]}`
+            ];
+            
+            // Add the multiline text
+            guestInsights.forEach((insight, index) => {
+              doc.text(insight, 20, 125 + (index * 7));
+            });
+            
+            // Add recommendations based on insights
+            doc.setFontSize(styles.heading.fontSize);
+            doc.text('Recommendations', 15, 150);
+            
+            // Create recommendations based on data analysis
+            const recommendations = [];
+            
+            if (occupancyTrend === 'decreasing') {
+              recommendations.push('Consider promotional rates to improve declining occupancy.');
+            }
+            
+            if (avgOccupancy < 60) {
+              recommendations.push('Implement marketing campaign to increase low occupancy rate.');
+            }
+            
+            if (returningGuestsPercentage < 20) {
+              recommendations.push('Develop loyalty program to increase returning guests percentage.');
+            }
+            
+            if (revenueTrend === 'decreasing') {
+              recommendations.push('Review pricing strategy to address declining revenue trend.');
+            }
+            
+            if (recommendations.length === 0) {
+              recommendations.push('Current performance is satisfactory. Continue monitoring key metrics.');
+            }
+            
+            // Add the recommendations
+            recommendations.forEach((recommendation, index) => {
+              doc.text(`• ${recommendation}`, 20, 160 + (index * 7));
+            });
+            console.log("Added guest demographics and recommendations to PDF");
+          } catch (err) {
+            console.error('Error processing guest data:', err);
+            doc.setFontSize(styles.normal.fontSize);
+            doc.text('Error processing guest data for analysis.', 15, 45);
+          }
+        } else {
+          // No guest data available
+          console.log("No guest data available for analysis");
+          doc.setFontSize(styles.normal.fontSize);
+          doc.text('No guest data available for analysis.', 15, 45);
+        }
+        
+        // Add daily performance data table
+        try {
+          doc.addPage();
+          console.log("Added new page for daily performance data");
+          doc.setFontSize(styles.heading.fontSize);
+          doc.text('Daily Performance Data', 15, 30);
+          
+          if (revenueData && revenueData.dates && revenueData.dates.length > 0) {
+            const tableColumn = ["Date", "Revenue (GH₵)", "Occupancy (%)"];
+            const tableRows = [];
+            
+            for(let i = 0; i < revenueData.dates.length; i++) {
+              const rowData = [
+                revenueData.dates[i],
+                revenueData.values[i].toLocaleString(),
+                occupancyData.values[i].toString()
+              ];
+              tableRows.push(rowData);
+            }
+            
+            autoTable(doc, {
+              head: [tableColumn],
+              body: tableRows,
+              startY: 40,
+              theme: 'grid',
+              styles: {
+                font: 'helvetica',
+                fontSize: styles.tableRow.fontSize,
+                cellPadding: 3,
+                overflow: 'linebreak',
+                halign: 'center'
+              },
+              headStyles: {
+                fillColor: styles.tableHeader.fillColor,
+                textColor: styles.tableHeader.textColor,
+                fontStyle: styles.tableHeader.fontStyle,
+                fontSize: styles.tableHeader.fontSize
+              },
+              alternateRowStyles: {
+                fillColor: styles.tableRowAlternate.fillColor
+              }
+            });
+            console.log("Added daily performance data table to PDF");
+          } else {
+            doc.setFontSize(styles.normal.fontSize);
+            doc.text('No daily performance data available.', 15, 40);
+          }
+        } catch (err) {
+          console.error('Error adding daily performance data:', err);
+        }
+      } catch (error) {
+        console.error('Error processing occupancy data:', error);
+        doc.text('Error processing occupancy data', 20, 55);
+      }
+      
+      console.log("Summary PDF report generation completed successfully");
+    } catch (error) {
+      console.error('Error generating summary PDF report:', error);
+      // Add error information to the PDF so it's not empty
+      doc.setFontSize(14);
+      doc.setTextColor(255, 0, 0);
+      doc.text('Error Generating Report', 15, 30);
+      doc.setFontSize(12);
+      doc.text('There was an error generating the summary report.', 15, 45);
+      doc.text(`Error details: ${error.message || 'Unknown error'}`, 15, 60);
+    }
+  };
+  
+  // Generate Financial PDF report
+  const generateFinancialPdfReport = (doc, styles) => {
+    // Check if data is available
+    if (!financialData || !Array.isArray(financialData) || financialData.length === 0) {
+      console.error('Financial data not available for PDF generation');
+      doc.text('No financial data available for report generation.', 15, 30);
+      return;
+    }
+    
     // Add title
     doc.setFontSize(styles.title.fontSize);
     doc.setTextColor(...styles.title.textColor);
-    doc.text('Performance Summary Report', 15, 30);
+    doc.text('Financial Report', 15, 30);
     
-    // Add date range
+    // Add date
     doc.setFontSize(styles.subtitle.fontSize);
     doc.setTextColor(...styles.subtitle.textColor);
-    doc.text(`Date Range: ${revenueData.dates[0]} - ${revenueData.dates[revenueData.dates.length - 1]}`, 15, 40);
+    doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 15, 40);
     
-    // Add statistics
+    // Calculate financial summary
+    const totalAmount = financialData.reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
+    const paidAmount = financialData.filter(invoice => invoice.status === 'Paid')
+                      .reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
+    const pendingAmount = financialData.filter(invoice => invoice.status === 'Pending')
+                        .reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
+    const paidCount = financialData.filter(invoice => invoice.status === 'Paid').length;
+    const pendingCount = financialData.filter(invoice => invoice.status === 'Pending').length;
+    
+    // Add financial summary
     doc.setFontSize(styles.heading.fontSize);
     doc.setTextColor(...styles.heading.textColor);
-    doc.text('Key Performance Metrics', 15, 55);
+    doc.text('Financial Overview', 15, 55);
     
     // Add metrics in a visually appealing box
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(229, 231, 235);
-    doc.roundedRect(15, 60, 180, 40, 3, 3, 'FD');
+    doc.roundedRect(15, 60, 180, 50, 3, 3, 'FD');
     
     doc.setFontSize(styles.normal.fontSize);
-    doc.text(`Total Revenue: GH₵${totalRevenue.toLocaleString()}`, 25, 70);
-    doc.text(`Pending Payments: GH₵${pendingPayments.toLocaleString()}`, 25, 80);
-    doc.text(`Average Occupancy Rate: ${avgOccupancy}%`, 105, 70);
-    doc.text(`Total Room Bookings: ${totalRoomBookings}`, 105, 80);
+    doc.text(`Total Invoices: ${financialData.length}`, 25, 70);
+    doc.text(`Total Amount: GH₵${totalAmount.toLocaleString()}`, 25, 80);
+    doc.text(`Paid Amount: GH₵${paidAmount.toLocaleString()} (${paidCount} invoices)`, 25, 90);
+    doc.text(`Pending Amount: GH₵${pendingAmount.toLocaleString()} (${pendingCount} invoices)`, 25, 100);
     
-    // Add daily data table
+    // Add revenue insights
     doc.setFontSize(styles.heading.fontSize);
-    doc.text('Daily Performance', 15, 115);
+    doc.text('Revenue Insights', 15, 120);
     
-    const tableColumn = ["Date", "Revenue (GH₵)", "Occupancy (%)"];
+    // Calculate averages
+    const avgInvoiceAmount = totalAmount / financialData.length;
+    
+    doc.setFontSize(styles.normal.fontSize);
+    doc.text(`Average Invoice Amount: GH₵${avgInvoiceAmount.toLocaleString(undefined, {maximumFractionDigits: 2})}`, 20, 130);
+    doc.text(`Collection Rate: ${Math.round((paidAmount / totalAmount) * 100)}%`, 20, 140);
+    
+    if (pendingAmount > 0) {
+      doc.text(`Outstanding payments represent ${Math.round((pendingAmount / totalAmount) * 100)}% of total revenue.`, 20, 150);
+      doc.text(`Follow-up recommended for ${pendingCount} unpaid invoices.`, 20, 160);
+    } else {
+      doc.text(`All invoices have been paid. Excellent collection rate!`, 20, 150);
+    }
+    
+    // Add invoice details
+    doc.setFontSize(styles.heading.fontSize);
+    doc.text('Invoice Details', 15, 180);
+    
+    const tableColumn = ["Invoice #", "Guest", "Room", "Amount (GH₵)", "Date", "Status"];
     const tableRows = [];
     
-    for(let i = 0; i < revenueData.dates.length; i++) {
+    financialData.forEach(invoice => {
       const rowData = [
-        revenueData.dates[i],
-        revenueData.values[i].toLocaleString(),
-        occupancyData.values[i]
+        invoice.invoice_number || invoice.id || "N/A",
+        invoice.guest_name || "N/A",
+        invoice.room_id || invoice.room || "N/A",
+        parseFloat(invoice.amount).toLocaleString() || "0",
+        invoice.created_at ? format(parseISO(invoice.created_at), 'MMM dd, yyyy') : "N/A",
+        invoice.status || "N/A"
+      ];
+      tableRows.push(rowData);
+    });
+    
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 190,
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: styles.tableRow.fontSize,
+        cellPadding: 2,
+        overflow: 'linebreak',
+        halign: 'left'
+      },
+      headStyles: {
+        fillColor: styles.tableHeader.fillColor,
+        textColor: styles.tableHeader.textColor,
+        fontStyle: styles.tableHeader.fontStyle,
+        fontSize: styles.tableHeader.fontSize
+      },
+      alternateRowStyles: {
+        fillColor: styles.tableRowAlternate.fillColor
+      }
+    });
+  };
+  
+  // Generate Occupancy PDF report
+  const generateOccupancyPdfReport = (doc, styles) => {
+    // Check if data is available
+    if (!occupancyData || !occupancyData.dates || !occupancyData.values ||
+        !Array.isArray(occupancyData.dates) || occupancyData.dates.length === 0 ||
+        !Array.isArray(occupancyData.values) || occupancyData.values.length === 0) {
+      console.error('Occupancy data not available for PDF generation');
+      doc.text('No occupancy data available for report generation.', 15, 30);
+      return;
+    }
+    
+    // Add title
+    doc.setFontSize(styles.title.fontSize);
+    doc.setTextColor(...styles.title.textColor);
+    doc.text('Room Occupancy Report', 15, 30);
+    
+    // Add date range
+    doc.setFontSize(styles.subtitle.fontSize);
+    doc.setTextColor(...styles.subtitle.textColor);
+    doc.text(`Date Range: ${occupancyData.dates[0]} - ${occupancyData.dates[occupancyData.dates.length - 1]}`, 15, 40);
+    
+    // Calculate room statistics
+    const totalRooms = rooms.length;
+    const occupiedRooms = rooms.filter(room => room.status === 'Occupied').length;
+    const reservedRooms = rooms.filter(room => room.status === 'Reserved').length;
+    const availableRooms = rooms.filter(room => room.status === 'Available').length;
+    const maintenanceRooms = rooms.filter(room => room.status === 'Maintenance').length;
+    
+    // Add room statistics
+    doc.setFontSize(styles.heading.fontSize);
+    doc.setTextColor(...styles.heading.textColor);
+    doc.text('Room Statistics', 15, 55);
+    
+    // Add metrics in a visually appealing box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(229, 231, 235);
+    doc.roundedRect(15, 60, 180, 50, 3, 3, 'FD');
+    
+    doc.setFontSize(styles.normal.fontSize);
+    doc.text(`Total Rooms: ${totalRooms}`, 25, 70);
+    doc.text(`Occupied Rooms: ${occupiedRooms} (${Math.round((occupiedRooms/totalRooms)*100)}%)`, 25, 80);
+    doc.text(`Reserved Rooms: ${reservedRooms} (${Math.round((reservedRooms/totalRooms)*100)}%)`, 25, 90);
+    doc.text(`Available Rooms: ${availableRooms} (${Math.round((availableRooms/totalRooms)*100)}%)`, 25, 100);
+    doc.text(`Maintenance Rooms: ${maintenanceRooms} (${Math.round((maintenanceRooms/totalRooms)*100)}%)`, 105, 70);
+    doc.text(`Average Occupancy Rate: ${avgOccupancy}%`, 105, 80);
+    
+    // Add occupancy insights
+    doc.setFontSize(styles.heading.fontSize);
+    doc.text('Occupancy Insights', 15, 120);
+    
+    doc.setFontSize(styles.normal.fontSize);
+    
+    // Calculate occupancy trend
+    let occupancyTrend = "stable";
+    if (occupancyData.values.length > 1) {
+      const firstHalf = occupancyData.values.slice(0, Math.floor(occupancyData.values.length / 2));
+      const secondHalf = occupancyData.values.slice(Math.floor(occupancyData.values.length / 2));
+      const firstHalfAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
+      const secondHalfAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
+      
+      if (secondHalfAvg > firstHalfAvg * 1.1) {
+        occupancyTrend = "increasing";
+      } else if (secondHalfAvg < firstHalfAvg * 0.9) {
+        occupancyTrend = "decreasing";
+      }
+    }
+    
+    // Calculate peak occupancy day
+    let peakOccupancyDay = "";
+    let peakOccupancyRate = 0;
+    for (let i = 0; i < occupancyData.dates.length; i++) {
+      if (occupancyData.values[i] > peakOccupancyRate) {
+        peakOccupancyRate = occupancyData.values[i];
+        peakOccupancyDay = occupancyData.dates[i];
+      }
+    }
+    
+    // Create multiline text for occupancy insights
+    const occupancyInsights = [
+      `The hotel maintained an average occupancy rate of ${avgOccupancy}% during this period.`,
+      `Occupancy trend is ${occupancyTrend} over the reporting period.`,
+      `Peak occupancy of ${peakOccupancyRate}% was recorded on ${peakOccupancyDay}.`,
+      `Room utilization efficiency is ${avgOccupancy < 50 ? 'below optimal levels' : avgOccupancy < 75 ? 'at satisfactory levels' : 'excellent'}.`
+    ];
+    
+    // Add the multiline text
+    occupancyInsights.forEach((insight, index) => {
+      doc.text(insight, 20, 130 + (index * 7));
+    });
+    
+    // Add daily occupancy table
+    doc.setFontSize(styles.heading.fontSize);
+    doc.text('Daily Occupancy', 15, 170);
+    
+    const tableColumn = ["Date", "Occupancy Rate (%)", "Est. Rooms Occupied"];
+    const tableRows = [];
+    
+    for(let i = 0; i < occupancyData.dates.length; i++) {
+      const estRoomsOccupied = Math.round((occupancyData.values[i] / 100) * totalRooms);
+      const rowData = [
+        occupancyData.dates[i],
+        occupancyData.values[i],
+        estRoomsOccupied
       ];
       tableRows.push(rowData);
     }
@@ -977,7 +1976,7 @@ const Reports = () => {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 120,
+      startY: 180,
       theme: 'grid',
       styles: {
         font: 'helvetica',
@@ -998,11 +1997,12 @@ const Reports = () => {
     });
   };
   
-  // Generate guests PDF report
-  const generateGuestsPdfReport = (doc, styles) => {
+  // Generate Guest PDF report
+  const generateGuestPdfReport = (doc, styles) => {
     // Check if data is available
-    if (!guestData || !Array.isArray(guestData) || !guestData.length) {
+    if (!guestData || !Array.isArray(guestData) || guestData.length === 0) {
       console.error('Guest data not available for PDF generation');
+      doc.text('No guest data available for report generation.', 15, 30);
       return;
     }
     
@@ -1021,17 +2021,32 @@ const Reports = () => {
     doc.setTextColor(...styles.heading.textColor);
     doc.text('Guest Overview', 15, 55);
     
+    // Count by status
+    const statusCounts = guestData.reduce((acc, guest) => {
+      const status = guest.status || 'Unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+    
     // Add metrics in a visually appealing box
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(229, 231, 235);
-    doc.roundedRect(15, 60, 180, 25, 3, 3, 'FD');
+    doc.roundedRect(15, 60, 180, 40, 3, 3, 'FD');
     
     doc.setFontSize(styles.normal.fontSize);
     doc.text(`Total Guests: ${guestData.length}`, 25, 70);
     
+    // Display status counts
+    let yPos = 80;
+    Object.entries(statusCounts).forEach(([status, count]) => {
+      const percentage = ((count / guestData.length) * 100).toFixed(1);
+      doc.text(`${status}: ${count} guests (${percentage}%)`, 25, yPos);
+      yPos += 10;
+    });
+    
     // Add guests table
     doc.setFontSize(styles.heading.fontSize);
-    doc.text('Guest Details', 15, 95);
+    doc.text('Guest Details', 15, yPos + 10);
     
     const tableColumn = ["Name", "Email", "Phone", "Room", "Check-In", "Check-Out", "Status"];
     const tableRows = [];
@@ -1052,7 +2067,7 @@ const Reports = () => {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 100,
+      startY: yPos + 20,
       theme: 'grid',
       styles: {
         font: 'helvetica',
@@ -1081,93 +2096,13 @@ const Reports = () => {
       }
     });
   };
-  
-  // Generate financial PDF report
-  const generateFinancialPdfReport = (doc, styles) => {
-    // Check if data is available
-    if (!financialData || !Array.isArray(financialData) || !financialData.length) {
-      console.error('Financial data not available for PDF generation');
-      return;
-    }
-    
-    // Add title
-    doc.setFontSize(styles.title.fontSize);
-    doc.setTextColor(...styles.title.textColor);
-    doc.text('Financial Report', 15, 30);
-    
-    // Add date
-    doc.setFontSize(styles.subtitle.fontSize);
-    doc.setTextColor(...styles.subtitle.textColor);
-    doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 15, 40);
-    
-    // Calculate financial summary
-    const totalAmount = financialData.reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
-    const paidAmount = financialData.filter(invoice => invoice.status === 'Paid')
-                        .reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
-    const pendingAmount = financialData.filter(invoice => invoice.status === 'Pending')
-                          .reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
-    const paidCount = financialData.filter(invoice => invoice.status === 'Paid').length;
-    const pendingCount = financialData.filter(invoice => invoice.status === 'Pending').length;
-    
-    // Add financial summary
-    doc.setFontSize(styles.heading.fontSize);
-    doc.setTextColor(...styles.heading.textColor);
-    doc.text('Financial Overview', 15, 55);
-    
-    doc.setFontSize(styles.normal.fontSize);
-    doc.text(`Total Invoices: ${financialData.length}`, 25, 70);
-    doc.text(`Total Amount: GH₵${totalAmount.toLocaleString()}`, 25, 80);
-    doc.text(`Paid Amount: GH₵${paidAmount.toLocaleString()} (${paidCount} invoices)`, 25, 90);
-    doc.text(`Pending Amount: GH₵${pendingAmount.toLocaleString()} (${pendingCount} invoices)`, 25, 100);
-    
-    // Add invoice table
-    doc.setFontSize(styles.heading.fontSize);
-    doc.text('Invoice Details', 15, 120);
-    
-    const tableColumn = ["Invoice #", "Guest", "Room", "Amount (GH₵)", "Date", "Status"];
-    const tableRows = [];
-    
-    financialData.forEach(invoice => {
-      const rowData = [
-        invoice.invoice_number || invoice.id || "N/A",
-        invoice.guest_name || "N/A",
-        invoice.room_id || invoice.room || "N/A",
-        parseFloat(invoice.amount).toLocaleString() || "0",
-        invoice.created_at ? format(parseISO(invoice.created_at), 'MMM dd, yyyy') : "N/A",
-        invoice.status || "N/A"
-      ];
-      tableRows.push(rowData);
-    });
-    
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 130,
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: styles.tableRow.fontSize,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        halign: 'left'
-      },
-      headStyles: {
-        fillColor: styles.tableHeader.fillColor,
-        textColor: styles.tableHeader.textColor,
-        fontStyle: styles.tableHeader.fontStyle,
-        fontSize: styles.tableHeader.fontSize
-      },
-      alternateRowStyles: {
-        fillColor: styles.tableRowAlternate.fillColor
-      }
-    });
-  };
-  
-  // Generate housekeeping PDF report
+
+  // Generate Housekeeping PDF report
   const generateHousekeepingPdfReport = (doc, styles) => {
     // Check if data is available
-    if (!housekeepingData || !Array.isArray(housekeepingData)) {
+    if (!housekeepingData || !Array.isArray(housekeepingData) || housekeepingData.length === 0) {
       console.error('Housekeeping data not available for PDF generation');
+      doc.text('No housekeeping data available for report generation.', 15, 30);
       return;
     }
     
@@ -1181,37 +2116,47 @@ const Reports = () => {
     doc.setTextColor(...styles.subtitle.textColor);
     doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 15, 40);
     
-    // Calculate housekeeping summary
-    const pendingTasks = housekeepingData.filter(task => task.status === 'Pending').length;
-    const completedTasks = housekeepingData.filter(task => task.status === 'Completed').length;
-    const highPriorityTasks = housekeepingData.filter(task => task.priority === 'High').length;
-    
-    // Add housekeeping summary
+    // Add housekeeping task statistics
     doc.setFontSize(styles.heading.fontSize);
     doc.setTextColor(...styles.heading.textColor);
-    doc.text('Housekeeping Overview', 15, 55);
+    doc.text('Task Overview', 15, 55);
+    
+    // Calculate task statistics
+    const totalTasks = housekeepingData.length;
+    const completedTasks = housekeepingData.filter(task => task.status === 'Completed' || task.status === 'Done').length;
+    const pendingTasks = housekeepingData.filter(task => task.status === 'Pending' || task.status === 'In Progress').length;
+    const overdueTasks = housekeepingData.filter(task => {
+      if (!task.due_date) return false;
+      const dueDate = new Date(task.due_date);
+      return dueDate < new Date() && (task.status !== 'Completed' && task.status !== 'Done');
+    }).length;
+    
+    // Add metrics in a visually appealing box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(229, 231, 235);
+    doc.roundedRect(15, 60, 180, 40, 3, 3, 'FD');
     
     doc.setFontSize(styles.normal.fontSize);
-    doc.text(`Total Tasks: ${housekeepingData.length}`, 25, 70);
-    doc.text(`Pending Tasks: ${pendingTasks}`, 25, 80);
-    doc.text(`Completed Tasks: ${completedTasks}`, 25, 90);
-    doc.text(`High Priority Tasks: ${highPriorityTasks}`, 25, 100);
+    doc.text(`Total Tasks: ${totalTasks}`, 25, 70);
+    doc.text(`Completed Tasks: ${completedTasks} (${Math.round((completedTasks/totalTasks)*100) || 0}%)`, 25, 80);
+    doc.text(`Pending Tasks: ${pendingTasks} (${Math.round((pendingTasks/totalTasks)*100) || 0}%)`, 25, 90);
+    doc.text(`Overdue Tasks: ${overdueTasks} (${Math.round((overdueTasks/totalTasks)*100) || 0}%)`, 100, 70);
     
-    // Add tasks table
+    // Add task details
     doc.setFontSize(styles.heading.fontSize);
-    doc.text('Task Details', 15, 120);
+    doc.text('Task Details', 15, 115);
     
-    const tableColumn = ["Room", "Description", "Assignee", "Priority", "Status", "Due Date"];
+    const tableColumn = ["Task ID", "Description", "Room", "Status", "Assigned To", "Due Date"];
     const tableRows = [];
     
     housekeepingData.forEach(task => {
       const rowData = [
-        task.room || "N/A",
-        task.description || "N/A",
-        task.assignee || "N/A",
-        task.priority || "N/A",
+        task.id || "N/A",
+        task.description || task.task_description || "N/A",
+        task.room_id || task.room || "N/A",
         task.status || "N/A",
-        task.due_date ? format(parseISO(task.due_date), 'MMM dd, yyyy') : "N/A"
+        task.assigned_to || "N/A",
+        task.due_date ? format(new Date(task.due_date), 'MMM dd, yyyy') : "N/A"
       ];
       tableRows.push(rowData);
     });
@@ -1219,7 +2164,7 @@ const Reports = () => {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 130,
+      startY: 125,
       theme: 'grid',
       styles: {
         font: 'helvetica',
@@ -1240,186 +2185,67 @@ const Reports = () => {
     });
   };
   
-  // Generate occupancy PDF report
-  const generateOccupancyPdfReport = (doc, styles) => {
-    // Check if data is available
-    if (!occupancyData || !occupancyData.dates || !occupancyData.values ||
-        !Array.isArray(occupancyData.dates) || !occupancyData.dates.length ||
-        !Array.isArray(occupancyData.values) || !occupancyData.values.length) {
-      console.error('Occupancy data not available for PDF generation');
-      return;
-    }
-    
-    // Add title
-    doc.setFontSize(styles.title.fontSize);
-    doc.setTextColor(...styles.title.textColor);
-    doc.text('Room Occupancy Report', 15, 30);
-    
-    // Add date range
-    doc.setFontSize(styles.subtitle.fontSize);
-    doc.setTextColor(...styles.subtitle.textColor);
-    doc.text(`Date Range: ${occupancyData.dates[0]} - ${occupancyData.dates[occupancyData.dates.length - 1]}`, 15, 40);
-    
-    // Calculate room statistics
-    const totalRooms = rooms.length;
-    const occupiedRooms = rooms.filter(room => room.status === 'Occupied').length;
-    const reservedRooms = rooms.filter(room => room.status === 'Reserved').length;
-    const availableRooms = rooms.filter(room => room.status === 'Available').length;
-    const maintenanceRooms = rooms.filter(room => room.status === 'Maintenance').length;
-    
-    // Add room statistics
-    doc.setFontSize(styles.heading.fontSize);
-    doc.setTextColor(...styles.heading.textColor);
-    doc.text('Room Statistics', 15, 55);
-    
-    doc.setFontSize(styles.normal.fontSize);
-    doc.text(`Total Rooms: ${totalRooms}`, 25, 70);
-    doc.text(`Occupied Rooms: ${occupiedRooms} (${Math.round((occupiedRooms/totalRooms)*100)}%)`, 25, 80);
-    doc.text(`Reserved Rooms: ${reservedRooms} (${Math.round((reservedRooms/totalRooms)*100)}%)`, 25, 90);
-    doc.text(`Available Rooms: ${availableRooms} (${Math.round((availableRooms/totalRooms)*100)}%)`, 25, 100);
-    doc.text(`Maintenance Rooms: ${maintenanceRooms} (${Math.round((maintenanceRooms/totalRooms)*100)}%)`, 25, 110);
-    doc.text(`Average Occupancy Rate: ${avgOccupancy}%`, 105, 70);
-    
-    // Add daily occupancy table
-    doc.setFontSize(styles.heading.fontSize);
-    doc.text('Daily Occupancy', 15, 125);
-    
-    const tableColumn = ["Date", "Occupancy Rate (%)", "Est. Rooms Occupied"];
-    const tableRows = [];
-    
-    for(let i = 0; i < occupancyData.dates.length; i++) {
-      const estRoomsOccupied = Math.round((occupancyData.values[i] / 100) * totalRooms);
-      const rowData = [
-        occupancyData.dates[i],
-        occupancyData.values[i],
-        estRoomsOccupied
-      ];
-      tableRows.push(rowData);
-    }
-    
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 135,
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: styles.tableRow.fontSize,
-        cellPadding: 3,
-        overflow: 'linebreak',
-        halign: 'center'
-      },
-      headStyles: {
-        fillColor: styles.tableHeader.fillColor,
-        textColor: styles.tableHeader.textColor,
-        fontStyle: styles.tableHeader.fontStyle,
-        fontSize: styles.tableHeader.fontSize
-      },
-      alternateRowStyles: {
-        fillColor: styles.tableRowAlternate.fillColor
-      }
-    });
-    
-    // Add room status details on a new page
-    doc.addPage();
-    doc.setFontSize(styles.title.fontSize);
-    doc.setTextColor(...styles.title.textColor);
-    doc.text('Current Room Status Details', 15, 20);
-    
-    // Add room status table
-    const roomTableColumn = ["Room #", "Type", "Status", "Guest", "Check-In", "Check-Out", "Price (GH₵)"];
-    const roomTableRows = [];
-    
-    rooms.forEach(room => {
-      const rowData = [
-        room.id || room.room_number || "N/A",
-        room.type || "Standard",
-        room.status || "N/A",
-        room.guest || "N/A",
-        room.checkIn ? format(parseISO(room.checkIn), 'MMM dd, yyyy') : "N/A",
-        room.checkOut ? format(parseISO(room.checkOut), 'MMM dd, yyyy') : "N/A",
-        room.price ? room.price.toLocaleString() : "N/A"
-      ];
-      roomTableRows.push(rowData);
-    });
-    
-    autoTable(doc, {
-      head: [roomTableColumn],
-      body: roomTableRows,
-      startY: 30,
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: styles.normal.fontSize,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        halign: 'left'
-      },
-      headStyles: {
-        fillColor: styles.tableHeader.fillColor,
-        textColor: styles.tableHeader.textColor,
-        fontStyle: styles.tableHeader.fontStyle,
-        fontSize: styles.tableHeader.fontSize
-      },
-      alternateRowStyles: {
-        fillColor: styles.tableRowAlternate.fillColor
-      }
-    });
-  };
-  
-  // Generate monthly performance PDF report
+  // Generate Monthly PDF report
   const generateMonthlyPdfReport = (doc, styles) => {
     // Check if data is available
     if (!monthlyPerformanceData || Object.keys(monthlyPerformanceData).length === 0) {
       console.error('Monthly performance data not available for PDF generation');
+      doc.text('No monthly performance data available for report generation.', 15, 30);
       return;
     }
     
     // Add title
     doc.setFontSize(styles.title.fontSize);
     doc.setTextColor(...styles.title.textColor);
-    doc.text('Monthly Accounting Performance', 15, 30);
+    doc.text('Monthly Performance Report', 15, 30);
     
     // Add date
     doc.setFontSize(styles.subtitle.fontSize);
     doc.setTextColor(...styles.subtitle.textColor);
     doc.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`, 15, 40);
     
-    // Sort months chronologically
-    const months = Object.keys(monthlyPerformanceData).sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
-      return dateA - dateB;
-    });
-    
-    // Calculate totals
-    const totalRevenue = months.reduce((sum, month) => sum + monthlyPerformanceData[month].revenue, 0);
-    const totalPending = months.reduce((sum, month) => sum + monthlyPerformanceData[month].pendingAmount, 0);
-    const totalInvoices = months.reduce((sum, month) => sum + monthlyPerformanceData[month].invoiceCount, 0);
-    
-    // Add monthly summary
+    // Add summary
     doc.setFontSize(styles.heading.fontSize);
     doc.setTextColor(...styles.heading.textColor);
-    doc.text('Monthly Performance', 15, 55);
+    doc.text('Monthly Performance Summary', 15, 55);
+    
+    // Calculate totals from monthly data
+    let totalRevenue = 0;
+    let totalPendingAmount = 0;
+    let totalInvoiceCount = 0;
+    
+    Object.values(monthlyPerformanceData).forEach(monthData => {
+      totalRevenue += monthData.revenue || 0;
+      totalPendingAmount += monthData.pendingAmount || 0;
+      totalInvoiceCount += monthData.invoiceCount || 0;
+    });
+    
+    // Add metrics in a visually appealing box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(229, 231, 235);
+    doc.roundedRect(15, 60, 180, 40, 3, 3, 'FD');
     
     doc.setFontSize(styles.normal.fontSize);
     doc.text(`Total Revenue: GH₵${totalRevenue.toLocaleString()}`, 25, 70);
-    doc.text(`Total Pending: GH₵${totalPending.toLocaleString()}`, 25, 80);
-    doc.text(`Total Invoices: ${totalInvoices}`, 25, 90);
+    doc.text(`Total Pending: GH₵${totalPendingAmount.toLocaleString()}`, 25, 80);
+    doc.text(`Total Invoices: ${totalInvoiceCount}`, 25, 90);
+    doc.text(`Collection Rate: ${Math.round((totalRevenue / (totalRevenue + totalPendingAmount)) * 100) || 0}%`, 120, 70);
     
-    // Add monthly table
+    // Add monthly details table
+    doc.setFontSize(styles.heading.fontSize);
+    doc.text('Monthly Details', 15, 115);
+    
     const tableColumn = ["Month", "Revenue (GH₵)", "Pending (GH₵)", "Invoices", "Paid", "Pending"];
     const tableRows = [];
     
-    months.forEach(month => {
-      const data = monthlyPerformanceData[month];
+    Object.entries(monthlyPerformanceData).forEach(([month, data]) => {
       const rowData = [
         month,
-        data.revenue.toLocaleString(),
-        data.pendingAmount.toLocaleString(),
-        data.invoiceCount,
-        data.paidCount,
-        data.pendingCount
+        (data.revenue || 0).toLocaleString(),
+        (data.pendingAmount || 0).toLocaleString(),
+        data.invoiceCount || 0,
+        data.paidCount || 0,
+        data.pendingCount || 0
       ];
       tableRows.push(rowData);
     });
@@ -1427,14 +2253,14 @@ const Reports = () => {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 75,
+      startY: 125,
       theme: 'grid',
       styles: {
         font: 'helvetica',
         fontSize: styles.tableRow.fontSize,
         cellPadding: 3,
         overflow: 'linebreak',
-        halign: 'center'
+        halign: 'left'
       },
       headStyles: {
         fillColor: styles.tableHeader.fillColor,
@@ -1446,612 +2272,38 @@ const Reports = () => {
         fillColor: styles.tableRowAlternate.fillColor
       }
     });
-  };
-
-  // Generate Excel report
-  const generateExcelReport = (reportType = 'summary') => {
-    // Create workbook and worksheet
-    const wb = XLSX.utils.book_new();
     
-    // Generate current date string for filename
-    const currentDate = new Date();
-    const formattedDate = format(currentDate, 'yyyy-MM-dd');
-    let filename = `Mikjane_Hotel_Report_${formattedDate}.xlsx`;
+    // Add monthly performance trend analysis
+    doc.addPage();
+    doc.setFontSize(styles.heading.fontSize);
+    doc.text('Monthly Trend Analysis', 15, 30);
     
-    // Check if data is available
-    if (!revenueData || !revenueData.dates || !revenueData.values || 
-        !Array.isArray(revenueData.dates) || !revenueData.dates.length || 
-        !Array.isArray(revenueData.values) || !revenueData.values.length) {
-      console.error('Data not available for Excel generation');
-      return { filename: '', fileContent: null, previewData: null };
-    }
-    
-    // Variables for preview data
-    let previewData = {
-      headers: [],
-      rows: []
-    };
-    
-    // Based on report type, create appropriate data and filename
-    switch(reportType) {
-      case 'guests':
-        // Guest report
-        if (!guestData || !Array.isArray(guestData) || !guestData.length) {
-          console.error('Guest data not available for Excel generation');
-          return { filename: '', fileContent: null, previewData: null };
-        }
-        
-        // Create summary data
-        const guestSummaryData = [
-          ['Mikjane Hotel - Guest Report'],
-          [`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`],
-          [''],
-          ['Summary Metrics'],
-          ['Total Guests', guestData.length],
-          ['']
-        ];
-        
-        // Create guests data
-        const guestsData = [
-          ['Name', 'Email', 'Phone', 'Room', 'Check-In', 'Check-Out', 'Status']
-        ];
-        
-        guestData.forEach(guest => {
-          guestsData.push([
-            guest.name || guest.guest_name || "N/A",
-            guest.email || "N/A",
-            guest.phone || "N/A",
-            guest.room_id || guest.room || "N/A",
-            guest.checkIn || guest.check_in || "N/A",
-            guest.checkOut || guest.check_out || "N/A",
-            guest.status || "N/A"
-          ]);
-        });
-        
-        // Add summary worksheet
-        const guestSummaryWs = XLSX.utils.aoa_to_sheet(guestSummaryData);
-        XLSX.utils.book_append_sheet(wb, guestSummaryWs, 'Summary');
-        
-        // Add guests data worksheet
-        const guestsWs = XLSX.utils.aoa_to_sheet(guestsData);
-        XLSX.utils.book_append_sheet(wb, guestsWs, 'Guest Data');
-        
-        filename = `Mikjane_Hotel_Guest_Report_${formattedDate}.xlsx`;
-        previewData.headers = guestsData[0];
-        previewData.rows = guestsData.slice(1, 11); // First 10 rows for preview
-        break;
-        
-      case 'financial':
-        // Financial report
-        if (!financialData || !Array.isArray(financialData) || !financialData.length) {
-          console.error('Financial data not available for Excel generation');
-          return { filename: '', fileContent: null, previewData: null };
-        }
-        
-        // Calculate financial summary
-        const totalAmount = financialData.reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
-        const paidAmount = financialData.filter(invoice => invoice.status === 'Paid')
-                          .reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
-        const pendingAmount = financialData.filter(invoice => invoice.status === 'Pending')
-                            .reduce((sum, invoice) => sum + (parseFloat(invoice.amount) || 0), 0);
-        const paidCount = financialData.filter(invoice => invoice.status === 'Paid').length;
-        const pendingCount = financialData.filter(invoice => invoice.status === 'Pending').length;
-        
-        // Create summary data
-        const financialSummaryData = [
-          ['Mikjane Hotel - Financial Report'],
-          [`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`],
-          [''],
-          ['Summary Metrics'],
-          ['Total Invoices', financialData.length],
-          ['Total Amount', `GH₵${totalAmount.toLocaleString()}`],
-          ['Paid Amount', `GH₵${paidAmount.toLocaleString()}`, `(${paidCount} invoices)`],
-          ['Pending Amount', `GH₵${pendingAmount.toLocaleString()}`, `(${pendingCount} invoices)`],
-          ['']
-        ];
-        
-        // Create invoice data
-        const invoiceData = [
-          ['Invoice #', 'Guest', 'Room', 'Amount (GH₵)', 'Date', 'Status']
-        ];
-        
-        financialData.forEach(invoice => {
-          invoiceData.push([
-            invoice.invoice_number || invoice.id || "N/A",
-            invoice.guest_name || "N/A",
-            invoice.room_id || invoice.room || "N/A",
-            parseFloat(invoice.amount) || 0,
-            invoice.created_at ? format(parseISO(invoice.created_at), 'MMM dd, yyyy') : "N/A",
-            invoice.status || "N/A"
-          ]);
-        });
-        
-        // Add summary worksheet
-        const financialSummaryWs = XLSX.utils.aoa_to_sheet(financialSummaryData);
-        XLSX.utils.book_append_sheet(wb, financialSummaryWs, 'Summary');
-        
-        // Add invoice data worksheet
-        const invoiceWs = XLSX.utils.aoa_to_sheet(invoiceData);
-        XLSX.utils.book_append_sheet(wb, invoiceWs, 'Invoice Data');
-        
-        filename = `Mikjane_Hotel_Financial_Report_${formattedDate}.xlsx`;
-        previewData.headers = invoiceData[0];
-        previewData.rows = invoiceData.slice(1, 11); // First 10 rows for preview
-        break;
-        
-      case 'occupancy':
-        // Occupancy report
-        // Calculate room statistics
-        const totalRooms = rooms.length;
-        const occupiedRooms = rooms.filter(room => room.status === 'Occupied').length;
-        const reservedRooms = rooms.filter(room => room.status === 'Reserved').length;
-        const availableRooms = rooms.filter(room => room.status === 'Available').length;
-        const maintenanceRooms = rooms.filter(room => room.status === 'Maintenance').length;
-        
-        // Create summary data
-        const occupancySummaryData = [
-          ['Mikjane Hotel - Room Occupancy Report'],
-          [`Date Range: ${occupancyData.dates[0]} - ${occupancyData.dates[occupancyData.dates.length - 1]}`],
-          [''],
-          ['Room Statistics'],
-          ['Total Rooms', totalRooms],
-          ['Occupied Rooms', occupiedRooms, `${Math.round((occupiedRooms/totalRooms)*100)}%`],
-          ['Reserved Rooms', reservedRooms, `${Math.round((reservedRooms/totalRooms)*100)}%`],
-          ['Available Rooms', availableRooms, `${Math.round((availableRooms/totalRooms)*100)}%`],
-          ['Maintenance Rooms', maintenanceRooms, `${Math.round((maintenanceRooms/totalRooms)*100)}%`],
-          ['Average Occupancy Rate', `${avgOccupancy}%`],
-          ['']
-        ];
-        
-        // Create daily occupancy data
-        const dailyOccupancyData = [
-          ['Date', 'Occupancy Rate (%)', 'Est. Rooms Occupied']
-        ];
-        
-        for(let i = 0; i < occupancyData.dates.length; i++) {
-          const estRoomsOccupied = Math.round((occupancyData.values[i] / 100) * totalRooms);
-          dailyOccupancyData.push([
-            occupancyData.dates[i],
-            occupancyData.values[i],
-            estRoomsOccupied
-          ]);
-        }
-        
-        // Create room status data
-        const roomData = [
-          ['Room #', 'Type', 'Status', 'Guest', 'Check-In', 'Check-Out', 'Price (GH₵)']
-        ];
-        
-        rooms.forEach(room => {
-          roomData.push([
-            room.id || room.room_number || "N/A",
-            room.type || "Standard",
-            room.status || "N/A",
-            room.guest || "N/A",
-            room.checkIn || "N/A",
-            room.checkOut || "N/A",
-            room.price || "N/A"
-          ]);
-        });
-        
-        // Add summary worksheet
-        const occupancySummaryWs = XLSX.utils.aoa_to_sheet(occupancySummaryData);
-        XLSX.utils.book_append_sheet(wb, occupancySummaryWs, 'Summary');
-        
-        // Add daily data worksheet
-        const dailyOccupancyWs = XLSX.utils.aoa_to_sheet(dailyOccupancyData);
-        XLSX.utils.book_append_sheet(wb, dailyOccupancyWs, 'Daily Occupancy');
-        
-        // Add room data worksheet
-        const roomWs = XLSX.utils.aoa_to_sheet(roomData);
-        XLSX.utils.book_append_sheet(wb, roomWs, 'Room Status');
-        
-        filename = `Mikjane_Hotel_Occupancy_Report_${formattedDate}.xlsx`;
-        previewData.headers = dailyOccupancyData[0];
-        previewData.rows = dailyOccupancyData.slice(1, 11); // First 10 rows for preview
-        break;
-        
-      case 'housekeeping':
-        // Housekeeping report
-        if (!housekeepingData || !Array.isArray(housekeepingData)) {
-          console.error('Housekeeping data not available for Excel generation');
-          return { filename: '', fileContent: null, previewData: null };
-        }
-        
-        // Calculate housekeeping summary
-        const pendingTasks = housekeepingData.filter(task => task.status === 'Pending').length;
-        const completedTasks = housekeepingData.filter(task => task.status === 'Completed').length;
-        const highPriorityTasks = housekeepingData.filter(task => task.priority === 'High').length;
-        
-        // Create summary data
-        const housekeepingSummaryData = [
-          ['Mikjane Hotel - Housekeeping Report'],
-          [`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`],
-          [''],
-          ['Summary Metrics'],
-          ['Total Tasks', housekeepingData.length],
-          ['Pending Tasks', pendingTasks],
-          ['Completed Tasks', completedTasks],
-          ['High Priority Tasks', highPriorityTasks],
-          ['']
-        ];
-        
-        // Create tasks data
-        const tasksData = [
-          ['Room', 'Description', 'Assignee', 'Priority', 'Status', 'Due Date']
-        ];
-        
-        housekeepingData.forEach(task => {
-          tasksData.push([
-            task.room || "N/A",
-            task.description || "N/A",
-            task.assignee || "N/A",
-            task.priority || "N/A",
-            task.status || "N/A",
-            task.due_date ? format(parseISO(task.due_date), 'MMM dd, yyyy') : "N/A"
-          ]);
-        });
-        
-        // Add summary worksheet
-        const housekeepingSummaryWs = XLSX.utils.aoa_to_sheet(housekeepingSummaryData);
-        XLSX.utils.book_append_sheet(wb, housekeepingSummaryWs, 'Summary');
-        
-        // Add tasks data worksheet
-        const tasksWs = XLSX.utils.aoa_to_sheet(tasksData);
-        XLSX.utils.book_append_sheet(wb, tasksWs, 'Task Data');
-        
-        filename = `Mikjane_Hotel_Housekeeping_Report_${formattedDate}.xlsx`;
-        previewData.headers = tasksData[0];
-        previewData.rows = tasksData.slice(1, 11); // First 10 rows for preview
-        break;
-        
-      case 'monthly':
-        // Monthly report
-        if (!monthlyPerformanceData || Object.keys(monthlyPerformanceData).length === 0) {
-          console.error('Monthly performance data not available for Excel generation');
-          return { filename: '', fileContent: null, previewData: null };
-        }
-        
-        // Sort months chronologically
-        const months = Object.keys(monthlyPerformanceData).sort((a, b) => {
-          const dateA = new Date(a);
-          const dateB = new Date(b);
-          return dateA - dateB;
-        });
-        
-        // Calculate totals
-        const totalRevMon = months.reduce((sum, month) => sum + monthlyPerformanceData[month].revenue, 0);
-        const totalPendingMon = months.reduce((sum, month) => sum + monthlyPerformanceData[month].pendingAmount, 0);
-        const totalInvoicesMon = months.reduce((sum, month) => sum + monthlyPerformanceData[month].invoiceCount, 0);
-        
-        // Create summary data
-        const monthlySummaryData = [
-          ['Mikjane Hotel - Monthly Accounting Performance'],
-          [`Generated on: ${format(new Date(), 'MMM dd, yyyy')}`],
-          [''],
-          ['Summary Metrics'],
-          ['Total Revenue', `GH₵${totalRevMon.toLocaleString()}`],
-          ['Total Pending', `GH₵${totalPendingMon.toLocaleString()}`],
-          ['Total Invoices', totalInvoicesMon],
-          ['']
-        ];
-        
-        // Create monthly data
-        const monthlyData = [
-          ['Month', 'Revenue (GH₵)', 'Pending (GH₵)', 'Invoices', 'Paid', 'Pending']
-        ];
-        
-        months.forEach(month => {
-          const data = monthlyPerformanceData[month];
-          monthlyData.push([
-            month,
-            data.revenue,
-            data.pendingAmount,
-            data.invoiceCount,
-            data.paidCount,
-            data.pendingCount
-          ]);
-        });
-        
-        // Add summary worksheet
-        const monthlySummaryWs = XLSX.utils.aoa_to_sheet(monthlySummaryData);
-        XLSX.utils.book_append_sheet(wb, monthlySummaryWs, 'Summary');
-        
-        // Add monthly data worksheet
-        const monthlyWs = XLSX.utils.aoa_to_sheet(monthlyData);
-        XLSX.utils.book_append_sheet(wb, monthlyWs, 'Monthly Data');
-        
-        filename = `Mikjane_Hotel_Monthly_Report_${formattedDate}.xlsx`;
-        previewData.headers = monthlyData[0];
-        previewData.rows = monthlyData.slice(1); // All monthly data for preview
-        break;
-        
-      default:
-        // Default summary report
-        // Create summary data
-        const summaryData = [
-          ['Mikjane Hotel - Performance Report'],
-          [`Date Range: ${revenueData.dates[0]} - ${revenueData.dates[revenueData.dates.length - 1]}`],
-          [''],
-          ['Summary Metrics'],
-          ['Total Revenue', `GH₵${totalRevenue.toLocaleString()}`],
-          ['Pending Payments', `GH₵${pendingPayments.toLocaleString()}`],
-          ['Average Occupancy Rate', `${avgOccupancy}%`],
-          ['Total Room Bookings', `${totalRoomBookings}`],
-          ['']
-        ];
-        
-        // Create daily data
-        const dailyData = [
-          ['Date', 'Revenue (GH₵)', 'Occupancy Rate (%)']
-        ];
-        
-        for (let i = 0; i < revenueData.dates.length; i++) {
-          dailyData.push([
-            revenueData.dates[i], 
-            revenueData.values[i],
-            `${occupancyData.values[i]}`
-          ]);
-        }
-        
-        // Add summary worksheet
-        const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
-        
-        // Add daily data worksheet
-        const dailyWs = XLSX.utils.aoa_to_sheet(dailyData);
-        XLSX.utils.book_append_sheet(wb, dailyWs, 'Daily Data');
-        
-        filename = `Mikjane_Hotel_Summary_Report_${formattedDate}.xlsx`;
-        previewData.headers = dailyData[0];
-        previewData.rows = dailyData.slice(1); // All daily data for preview
-    }
-    
-    // Convert workbook to binary string for storage
-    const binaryString = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i) & 0xFF;
-    }
-    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const fileContent = URL.createObjectURL(blob);
-    
-    // Generate Excel file and download
-    XLSX.writeFile(wb, filename);
-    
-    return { filename, fileContent, previewData };
-  };
-
-  // Generate CSV report
-  const generateCsvReport = (reportType = 'summary') => {
-    // Generate current date string for filename
-    const currentDate = new Date();
-    const formattedDate = format(currentDate, 'yyyy-MM-dd');
-    let filename = `Mikjane_Hotel_Report_${formattedDate}.csv`;
-    
-    // Initialize CSV data
-    let csvData = [];
-    
-    // Based on report type, create appropriate data and filename
-    switch(reportType) {
-      case 'guests':
-        // Guest report
-        if (!guestData || !Array.isArray(guestData) || !guestData.length) {
-          console.error('Guest data not available for CSV generation');
-          return { filename: '', fileContent: null };
-        }
-        
-        // Create header row
-        csvData = [
-          ['Name', 'Email', 'Phone', 'Room', 'Check-In', 'Check-Out', 'Status']
-        ];
-        
-        // Add data rows
-        guestData.forEach(guest => {
-          csvData.push([
-            guest.name || guest.guest_name || "N/A",
-            guest.email || "N/A",
-            guest.phone || "N/A",
-            guest.room_id || guest.room || "N/A",
-            guest.checkIn || guest.check_in || "N/A",
-            guest.checkOut || guest.check_out || "N/A",
-            guest.status || "N/A"
-          ]);
-        });
-        
-        filename = `Mikjane_Hotel_Guest_Report_${formattedDate}.csv`;
-        break;
-        
-      case 'financial':
-        // Financial report
-        if (!financialData || !Array.isArray(financialData) || !financialData.length) {
-          console.error('Financial data not available for CSV generation');
-          return { filename: '', fileContent: null };
-        }
-        
-        // Create header row
-        csvData = [
-          ['Invoice #', 'Guest', 'Room', 'Amount (GH₵)', 'Date', 'Status']
-        ];
-        
-        // Add data rows
-        financialData.forEach(invoice => {
-          csvData.push([
-            invoice.invoice_number || invoice.id || "N/A",
-            invoice.guest_name || "N/A",
-            invoice.room_id || invoice.room || "N/A",
-            parseFloat(invoice.amount) || 0,
-            invoice.created_at ? format(parseISO(invoice.created_at), 'MMM dd, yyyy') : "N/A",
-            invoice.status || "N/A"
-          ]);
-        });
-        
-        filename = `Mikjane_Hotel_Financial_Report_${formattedDate}.csv`;
-        break;
-        
-      case 'housekeeping':
-        // Housekeeping report
-        if (!housekeepingData || !Array.isArray(housekeepingData)) {
-          console.error('Housekeeping data not available for CSV generation');
-          return { filename: '', fileContent: null };
-        }
-        
-        // Create header row
-        csvData = [
-          ['Room', 'Description', 'Assignee', 'Priority', 'Status', 'Due Date']
-        ];
-        
-        // Add data rows
-        housekeepingData.forEach(task => {
-          csvData.push([
-            task.room || "N/A",
-            task.description || "N/A",
-            task.assignee || "N/A",
-            task.priority || "N/A",
-            task.status || "N/A",
-            task.due_date ? format(parseISO(task.due_date), 'MMM dd, yyyy') : "N/A"
-          ]);
-        });
-        
-        filename = `Mikjane_Hotel_Housekeeping_Report_${formattedDate}.csv`;
-        break;
-        
-      case 'occupancy':
-        // Occupancy report
-        if (!occupancyData || !occupancyData.dates || !occupancyData.values ||
-            !Array.isArray(occupancyData.dates) || !occupancyData.dates.length ||
-            !Array.isArray(occupancyData.values) || !occupancyData.values.length) {
-          console.error('Occupancy data not available for CSV generation');
-          return { filename: '', fileContent: null };
-        }
-        
-        // Create header row
-        csvData = [
-          ['Date', 'Occupancy Rate (%)', 'Est. Rooms Occupied']
-        ];
-        
-        // Add data rows
-        const totalRooms = rooms.length;
-        for(let i = 0; i < occupancyData.dates.length; i++) {
-          const estRoomsOccupied = Math.round((occupancyData.values[i] / 100) * totalRooms);
-          csvData.push([
-            occupancyData.dates[i],
-            occupancyData.values[i],
-            estRoomsOccupied
-          ]);
-        }
-        
-        filename = `Mikjane_Hotel_Occupancy_Report_${formattedDate}.csv`;
-        break;
-        
-      case 'monthly':
-        // Monthly report
-        if (!monthlyPerformanceData || Object.keys(monthlyPerformanceData).length === 0) {
-          console.error('Monthly performance data not available for CSV generation');
-          return { filename: '', fileContent: null };
-        }
-        
-        // Create header row
-        csvData = [
-          ['Month', 'Revenue (GH₵)', 'Pending (GH₵)', 'Invoices', 'Paid', 'Pending']
-        ];
-        
-        // Sort months chronologically
-        const months = Object.keys(monthlyPerformanceData).sort((a, b) => {
-          const dateA = new Date(a);
-          const dateB = new Date(b);
-          return dateA - dateB;
-        });
-        
-        // Add data rows
-        months.forEach(month => {
-          const data = monthlyPerformanceData[month];
-          csvData.push([
-            month,
-            data.revenue,
-            data.pendingAmount,
-            data.invoiceCount,
-            data.paidCount,
-            data.pendingCount
-          ]);
-        });
-        
-        filename = `Mikjane_Hotel_Monthly_Report_${formattedDate}.csv`;
-        break;
-        
-      default:
-        // Default summary report
-        // Create header row
-        csvData = [
-          ['Date', 'Revenue (GH₵)', 'Occupancy Rate (%)']
-        ];
-        
-        // Add data rows
-        for (let i = 0; i < revenueData.dates.length; i++) {
-          csvData.push([
-            revenueData.dates[i], 
-            revenueData.values[i],
-            occupancyData.values[i]
-          ]);
-        }
-        
-        filename = `Mikjane_Hotel_Summary_Report_${formattedDate}.csv`;
-    }
-    
-    // Convert to CSV string
-    let csvContent = csvData.map(row => row.join(',')).join('\n');
-    
-    // Create blob and URL for file content
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const fileContent = URL.createObjectURL(blob);
-    
-    // Extract preview data
-    const previewData = {
-      headers: csvData.length > 0 ? csvData[0] : [],
-      rows: csvData.slice(1, 11) // First 10 rows for preview
-    };
-    
-    // Download CSV file
-    saveAs(blob, filename);
-    
-    return { filename, fileContent, previewData };
-  };
-
-  // Add a cleanup effect to dispose of charts when component unmounts
-  useEffect(() => {
-    return () => {
-      if (revenueChartInstance.current) {
-        revenueChartInstance.current.dispose();
-      }
-      if (occupancyChartInstance.current) {
-        occupancyChartInstance.current.dispose();
-      }
+    // Create trend analysis text
+    const months = Object.keys(monthlyPerformanceData);
+    if (months.length > 1) {
+      const firstMonth = months[0];
+      const lastMonth = months[months.length - 1];
+      const firstMonthData = monthlyPerformanceData[firstMonth];
+      const lastMonthData = monthlyPerformanceData[lastMonth];
       
-      // Remove any event listeners added by charts
-      window.removeEventListener('resize', handleRevenueChartResize);
-      window.removeEventListener('resize', handleOccupancyChartResize);
-    };
-  }, []);
-  
-  // Handlers for chart resize
-  const handleRevenueChartResize = () => {
-    revenueChartInstance.current?.resize();
+      const revenueChange = lastMonthData.revenue - firstMonthData.revenue;
+      const revenueChangePercent = firstMonthData.revenue ? 
+        (revenueChange / firstMonthData.revenue) * 100 : 0;
+        
+      const collectionRateFirst = firstMonthData.revenue / 
+        (firstMonthData.revenue + firstMonthData.pendingAmount) * 100 || 0;
+      const collectionRateLast = lastMonthData.revenue / 
+        (lastMonthData.revenue + lastMonthData.pendingAmount) * 100 || 0;
+        
+      doc.setFontSize(styles.normal.fontSize);
+      doc.text(`Revenue Trend: ${revenueChange >= 0 ? 'Increasing' : 'Decreasing'} by ${Math.abs(revenueChangePercent).toFixed(1)}%`, 20, 45);
+      doc.text(`Collection Rate Trend: ${collectionRateLast >= collectionRateFirst ? 'Improving' : 'Declining'}`, 20, 55);
+      doc.text(`${firstMonth} Collection: ${collectionRateFirst.toFixed(1)}% vs ${lastMonth} Collection: ${collectionRateLast.toFixed(1)}%`, 20, 65);
+    } else {
+      doc.setFontSize(styles.normal.fontSize);
+      doc.text('Insufficient data for trend analysis. Need at least two months of data.', 20, 45);
+    }
   };
-  
-  const handleOccupancyChartResize = () => {
-    occupancyChartInstance.current?.resize();
-  };
-  
-  // Add resize event listeners
-  useEffect(() => {
-    window.addEventListener('resize', handleRevenueChartResize);
-    window.addEventListener('resize', handleOccupancyChartResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleRevenueChartResize);
-      window.removeEventListener('resize', handleOccupancyChartResize);
-    };
-  }, []);
 
   return (
     <div className="flex h-screen">
@@ -2060,36 +2312,40 @@ const Reports = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar title="Reports" />
         
-        {/* Toast notification */}
-        {toast && (
-          <Toast 
-            message={toast.message}
-            type={toast.type}
-            onClose={hideToast}
-          />
-        )}
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme={darkMode ? 'dark' : 'light'}
+        />
         
         {/* Report Preview and Share Modal */}
         <ReportModal 
-          isOpen={previewModalOpen}
-          onClose={() => setPreviewModalOpen(false)}
+          isOpen={showPreviewModal}
+          onClose={() => setShowPreviewModal(false)}
           title={selectedReport?.name || 'Report Preview'}
           reportData={selectedReport}
           reportType={selectedReport?.type || 'PDF'}
-          isDarkMode={isDarkMode}
+          darkMode={darkMode}
           initialTab={selectedReport?.activeTab || 'preview'}
         />
         
-        <div className={`flex-1 overflow-y-auto p-6 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
+        <div className={`flex-1 overflow-y-auto p-6 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
           {/* Report Controls */}
-          <div className={`mb-6 p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`mb-6 p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex flex-wrap gap-4 items-center">
               <div>
                 <label className="block mb-1 text-sm font-medium">Date Range</label>
                 <select 
                   value={dateRange} 
                   onChange={(e) => setDateRange(e.target.value)}
-                  className={`rounded p-2 border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-700'}`}
+                  className={`rounded p-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-700'}`}
                 >
                   <option value="7days">Last 7 Days</option>
                   <option value="30days">Last 30 Days</option>
@@ -2107,7 +2363,7 @@ const Reports = () => {
           </div>
           
           {/* Report Type Selector */}
-          <div className={`mb-6 p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`mb-6 p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <h3 className="text-lg font-medium mb-4">Report Generation</h3>
             <div className="flex flex-wrap gap-4 items-center">
               <div className="w-full md:w-1/3">
@@ -2115,7 +2371,7 @@ const Reports = () => {
                 <select 
                   value={selectedReportType} 
                   onChange={handleReportTypeChange}
-                  className={`w-full rounded p-2 border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-700'}`}
+                  className={`w-full rounded p-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-700'}`}
                 >
                   {reportTypeOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -2131,7 +2387,7 @@ const Reports = () => {
               <div className="w-full md:w-2/3 flex gap-4 mt-4 md:mt-0 justify-end items-end">
                 <button 
                   onClick={() => {
-                    generatePdfReport(selectedReportType);
+                    generateReport(selectedReportType);
                   }}
                   disabled={isGenerating}
                   className={`px-4 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 flex items-center ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -2140,7 +2396,7 @@ const Reports = () => {
                 </button>
                 
                 <button 
-                  onClick={() => generateExcelReport(selectedReportType)}
+                  onClick={() => generateReport(selectedReportType, 'excel')}
                   disabled={isGenerating}
                   className={`px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700 flex items-center ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
@@ -2148,7 +2404,7 @@ const Reports = () => {
                 </button>
                 
                 <button 
-                  onClick={() => generateCsvReport(selectedReportType)}
+                  onClick={() => generateReport(selectedReportType, 'csv')}
                   disabled={isGenerating}
                   className={`px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 flex items-center ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
@@ -2163,9 +2419,9 @@ const Reports = () => {
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="flex space-x-2 animate-pulse mb-4">
-                  <div className={`w-3 h-3 rounded-full ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
-                  <div className={`w-3 h-3 rounded-full ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
-                  <div className={`w-3 h-3 rounded-full ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
+                  <div className={`w-3 h-3 rounded-full ${darkMode ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
+                  <div className={`w-3 h-3 rounded-full ${darkMode ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
+                  <div className={`w-3 h-3 rounded-full ${darkMode ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
                 </div>
                 <p className="text-lg">Loading report data...</p>
               </div>
@@ -2175,14 +2431,14 @@ const Reports = () => {
               {/* Stats Overview */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {/* Total Revenue Card */}
-                <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className={`p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Revenue (Completed Payments)</p>
                       <h3 className="text-2xl font-bold mt-1">GH₵{totalRevenue.toLocaleString()}</h3>
                     </div>
-                    <div className={`p-3 rounded-full ${isDarkMode ? 'bg-blue-900' : 'bg-blue-100'}`}>
-                      <i className={`fas fa-money-bill-wave text-xl ${isDarkMode ? 'text-blue-300' : 'text-blue-500'}`}></i>
+                    <div className={`p-3 rounded-full ${darkMode ? 'bg-blue-900' : 'bg-blue-100'}`}>
+                      <i className={`fas fa-money-bill-wave text-xl ${darkMode ? 'text-blue-300' : 'text-blue-500'}`}></i>
                     </div>
                   </div>
                   <div className="mt-2 text-sm font-medium">
@@ -2193,14 +2449,14 @@ const Reports = () => {
                 </div>
                 
                 {/* Pending Payments Card */}
-                <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className={`p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Pending Payments</p>
                       <h3 className="text-2xl font-bold mt-1">GH₵{pendingPayments.toLocaleString()}</h3>
                     </div>
-                    <div className={`p-3 rounded-full ${isDarkMode ? 'bg-yellow-900' : 'bg-yellow-100'}`}>
-                      <i className={`fas fa-clock text-xl ${isDarkMode ? 'text-yellow-300' : 'text-yellow-500'}`}></i>
+                    <div className={`p-3 rounded-full ${darkMode ? 'bg-yellow-900' : 'bg-yellow-100'}`}>
+                      <i className={`fas fa-clock text-xl ${darkMode ? 'text-yellow-300' : 'text-yellow-500'}`}></i>
                     </div>
                   </div>
                   <div className="mt-2 text-sm font-medium">
@@ -2212,14 +2468,14 @@ const Reports = () => {
                 </div>
                 
                 {/* Average Occupancy Card */}
-                <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className={`p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Average Occupancy</p>
                       <h3 className="text-2xl font-bold mt-1">{avgOccupancy}%</h3>
                     </div>
-                    <div className={`p-3 rounded-full ${isDarkMode ? 'bg-green-900' : 'bg-green-100'}`}>
-                      <i className={`fas fa-bed text-xl ${isDarkMode ? 'text-green-300' : 'text-green-500'}`}></i>
+                    <div className={`p-3 rounded-full ${darkMode ? 'bg-green-900' : 'bg-green-100'}`}>
+                      <i className={`fas fa-bed text-xl ${darkMode ? 'text-green-300' : 'text-green-500'}`}></i>
                     </div>
                   </div>
                   <div className="mt-2 text-sm font-medium">
@@ -2231,14 +2487,14 @@ const Reports = () => {
                 </div>
                 
                 {/* Room Bookings Card */}
-                <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className={`p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Room Bookings</p>
                       <h3 className="text-2xl font-bold mt-1">{totalRoomBookings}</h3>
                     </div>
-                    <div className={`p-3 rounded-full ${isDarkMode ? 'bg-purple-900' : 'bg-purple-100'}`}>
-                      <i className={`fas fa-calendar-check text-xl ${isDarkMode ? 'text-purple-300' : 'text-purple-500'}`}></i>
+                    <div className={`p-3 rounded-full ${darkMode ? 'bg-purple-900' : 'bg-purple-100'}`}>
+                      <i className={`fas fa-calendar-check text-xl ${darkMode ? 'text-purple-300' : 'text-purple-500'}`}></i>
                     </div>
                   </div>
                   <div className="mt-2 text-sm font-medium">
@@ -2253,20 +2509,20 @@ const Reports = () => {
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Revenue Chart */}
-                <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className={`p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                   <h3 className="text-lg font-medium mb-4">Revenue Trend</h3>
                   <div ref={revenueChartRef} style={{ height: '300px' }}></div>
                 </div>
                 
                 {/* Occupancy Chart */}
-                <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className={`p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                   <h3 className="text-lg font-medium mb-4">Occupancy Rate</h3>
                   <div ref={occupancyChartRef} style={{ height: '300px' }}></div>
                 </div>
               </div>
               
               {/* Performance Analysis */}
-              <div className={`p-4 rounded-lg shadow-md mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              <div className={`p-4 rounded-lg shadow-md mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                 <h3 className="text-lg font-medium mb-4">Performance Analysis</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -2307,32 +2563,33 @@ const Reports = () => {
               </div>
               
               {/* Report History */}
-              <div className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                <h3 className="text-lg font-medium mb-4">Report History</h3>
-                <div className="overflow-x-auto">
-                  <table className={`min-w-full ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <thead>
-                      <tr className={`${isDarkMode ? 'border-gray-700' : 'border-gray-300'} border-b`}>
-                        <th className="py-3 px-4 text-left">Report Name</th>
-                        <th className="py-3 px-4 text-left">Date Generated</th>
-                        <th className="py-3 px-4 text-left">Type</th>
-                        <th className="py-3 px-4 text-left">Generated By</th>
-                        <th className="py-3 px-4 text-left">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportHistory.length > 0 ? (
-                        reportHistory.map(report => (
-                          <tr key={report.id} className={`${isDarkMode ? 'border-gray-700' : 'border-gray-300'} border-b`}>
-                            <td className="py-3 px-4">{report.name}</td>
-                            <td className="py-3 px-4">{report.date}</td>
-                            <td className="py-3 px-4">{report.type}</td>
-                            <td className="py-3 px-4">{report.generatedBy}</td>
-                            <td className="py-3 px-4 space-x-2">
-                              {report.fileContent ? (
-                                <>
+              <div className={`mt-6 p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
+                <h3 className="text-lg font-semibold mb-2">Report History</h3>
+                {reportHistory.length === 0 ? (
+                  <p className="text-gray-500">No reports generated yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className={`w-full rounded-lg ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                        <tr>
+                          <th className="px-4 py-2 text-left">Name</th>
+                          <th className="px-4 py-2 text-left">Date</th>
+                          <th className="px-4 py-2 text-left">Type</th>
+                          <th className="px-4 py-2 text-left">Generated By</th>
+                          <th className="px-4 py-2 text-left">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportHistory.map((report) => (
+                          <tr key={report.id} className={`border-t ${darkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-100'}`}>
+                            <td className="px-4 py-2">{report.name}</td>
+                            <td className="px-4 py-2">{new Date(report.date).toLocaleDateString()}</td>
+                            <td className="px-4 py-2">{(report.type || report.format || 'Unknown').toUpperCase()}</td>
+                            <td className="px-4 py-2">{report.generatedBy}</td>
+                            <td className="px-4 py-2">
+                              <div className="flex space-x-2">
+                                {report.previewData && (
                                   <button 
-                                    className="text-blue-500 hover:underline"
                                     onClick={() => {
                                       // Direct download using the stored file content
                                       if (report.type === 'PDF') {
@@ -2349,34 +2606,18 @@ const Reports = () => {
                                         link.click();
                                       }
                                     }}
+                                    className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'} transition-colors`}
+                                    title="Download"
                                   >
-                                    <FaDownload className="inline mr-1" /> Download
+                                    <FaDownload size={18} className="text-green-500" />
                                   </button>
-                                  <button 
-                                    className="text-green-500 hover:underline"
-                                    onClick={() => openPreviewModal(report)}
-                                  >
-                                    <FaEye className="inline mr-1" /> Preview
-                                  </button>
-                                  <button 
-                                    className="text-purple-500 hover:underline"
-                                    onClick={() => {
-                                      setSelectedReport({...report, activeTab: 'share'});
-                                      setPreviewModalOpen(true);
-                                    }}
-                                  >
-                                    <FaShareAlt className="inline mr-1" /> Share
-                                  </button>
-                                </>
-                              ) : (
-                                // Fallback for older reports without stored content
+                                )}
                                 <button 
-                                  className="text-blue-500 hover:underline"
                                   onClick={() => {
                                     // Regenerate the report
                                     switch(report.type) {
                                       case 'PDF':
-                                        generatePdfReport(report.name.toLowerCase().includes('summary') ? 'summary' : 
+                                        generateReport(report.name.toLowerCase().includes('summary') ? 'summary' : 
                                                          report.name.toLowerCase().includes('guest') ? 'guests' :
                                                          report.name.toLowerCase().includes('financial') ? 'financial' :
                                                          report.name.toLowerCase().includes('housekeeping') ? 'housekeeping' :
@@ -2401,29 +2642,40 @@ const Reports = () => {
                                         break;
                                     }
                                   }}
+                                  className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'} transition-colors`}
+                                  title="Regenerate"
                                 >
-                                  <FaDownload className="inline mr-1" /> Download
+                                  <FaDownload size={18} className="text-green-500" />
                                 </button>
-                              )}
-                              <button 
-                                className="text-red-500 hover:underline ml-2"
-                                onClick={() => deleteReport(report.id)}
-                              >
-                                <i className="fas fa-trash mr-1"></i> Delete
-                              </button>
+                                <button 
+                                  onClick={() => {
+                                    // Logic to share the report
+                                    // This could be enhanced with actual sharing functionality
+                                    alert('Sharing options would appear here.');
+                                  }}
+                                  className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'} transition-colors`}
+                                  title="Share"
+                                >
+                                  <FaShareAlt size={18} className="text-yellow-500" />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    // Remove from history
+                                    deleteReport(report.id);
+                                  }}
+                                  className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'} transition-colors`}
+                                  title="Delete"
+                                >
+                                  <FaTimesCircle size={18} className="text-red-500" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="5" className="py-4 px-4 text-center text-gray-500">
-                            No reports have been generated yet. Use the Report Generation section above to create reports.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </>
           )}

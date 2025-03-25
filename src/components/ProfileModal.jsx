@@ -3,7 +3,7 @@ import { useUser } from '../context/UserContext';
 import supabase from '../supabaseClient';
 
 const ProfileModal = ({ isOpen, onClose }) => {
-  const { user } = useUser();
+  const { user, setCurrentUser } = useUser();
   const [formData, setFormData] = useState({
     fullName: '',
     position: '',
@@ -143,6 +143,13 @@ const ProfileModal = ({ isOpen, onClose }) => {
     setMessage({ text: '', type: '' });
     
     try {
+      console.log('Updating profile for user:', user.id);
+      
+      // Validate user ID is a valid UUID
+      if (!user.id || typeof user.id !== 'string' || !user.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        throw new Error('Invalid user ID. Please log in again with a proper account.');
+      }
+      
       // Upload image if there's a new one
       let avatarUrl = user.avatar_url;
       if (profileImage) {
@@ -153,7 +160,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
       }
       
       // Update user profile in the database
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
         .update({
           full_name: formData.fullName,
@@ -163,9 +170,33 @@ const ProfileModal = ({ isOpen, onClose }) => {
           avatar_url: avatarUrl,
           updated_at: new Date()
         })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('*')
+        .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Update error details:', error);
+        throw error;
+      }
+      
+      console.log('Profile updated successfully:', data);
+      
+      // Update local user context with the updated information
+      if (data) {
+        const updatedUser = {
+          ...user,
+          fullName: data.full_name,
+          position: data.position,
+          department: data.department,
+          contactNumber: data.contact_number,
+          avatar_url: data.avatar_url
+        };
+        
+        // Update user in context if it has setCurrentUser
+        if (typeof setCurrentUser === 'function') {
+          setCurrentUser(updatedUser);
+        }
+      }
       
       // Refresh user data in context
       setMessage({ 

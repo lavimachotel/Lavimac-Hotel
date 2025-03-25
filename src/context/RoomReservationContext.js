@@ -661,6 +661,57 @@ export const RoomReservationProvider = ({ children }) => {
     }
   };
   
+  // Update a reservation
+  const updateReservation = async (reservationData) => {
+    try {
+      // Update local state first
+      dispatch({ 
+        type: 'UPDATE_RESERVATION', 
+        payload: reservationData
+      });
+      
+      // If using mock data, don't try to update database
+      if (state.useMockData) {
+        console.log('Using mock data - skipping database operations for reservation update');
+        return { success: true };
+      }
+      
+      // Try to update in database
+      try {
+        // Update reservation status in database
+        const { error } = await updateReservationService(
+          reservationData.id, 
+          {
+            guest_name: reservationData.guestName,
+            guest_email: reservationData.email,
+            guest_phone: reservationData.phoneNumber,
+            room_type: reservationData.roomType,
+            room_number: reservationData.roomNumber,
+            check_in_date: reservationData.checkInDate,
+            check_out_date: reservationData.checkOutDate,
+            adults: reservationData.adults,
+            children: reservationData.children,
+            special_requests: reservationData.specialRequests,
+            payment_method: reservationData.paymentMethod,
+            status: reservationData.status,
+            updated_at: new Date().toISOString()
+          }
+        );
+        
+        if (error) {
+          return handleDatabaseError('updateReservation', error);
+        }
+        
+        return { success: true };
+      } catch (dbError) {
+        return handleDatabaseError('updateReservation', dbError);
+      }
+    } catch (error) {
+      console.error('Error updating reservation:', error);
+      return { success: false, error: error.message };
+    }
+  };
+  
   // Helper function to handle Supabase RLS errors
   const handleDatabaseError = (operation, error) => {
     console.warn(`Database error in ${operation}:`, error);
@@ -795,6 +846,7 @@ export const RoomReservationProvider = ({ children }) => {
         checkOutGuest,
         createReservation,
         cancelReservation,
+        updateReservation,
         handleDatabaseError,
         getRooms,
         getRoomById,

@@ -188,6 +188,35 @@ const ManagerAccessControl = () => {
         contactNumber: formData.contactNumber || selectedRequest.contact_number
       });
       
+      // Handle case where user already exists
+      if (!result.success && (result.error === 'User already registered' || result.code === 'USER_ALREADY_EXISTS')) {
+        // Just update the request status since user already exists
+        const { error: updateError } = await supabase
+          .from('access_requests')
+          .update({ status: 'approved' })
+          .eq('id', selectedRequest.id);
+          
+        if (updateError) throw updateError;
+        
+        setSuccess(`User with email ${formData.email} already exists. Access request approved!`);
+        toast.success('Access request approved for existing user');
+        
+        // Refresh requests
+        fetchAccessRequests();
+        
+        // Reset form and selected request
+        setFormData({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          role: 'staff',
+          permissions: []
+        });
+        setSelectedRequest(null);
+        setIsSubmitting(false);
+        return;
+      }
+      
       if (!result.success) {
         throw new Error(result.error || 'Failed to create user account');
       }
@@ -218,8 +247,15 @@ const ManagerAccessControl = () => {
       
     } catch (err) {
       console.error('Error approving request:', err);
-      setError(err.message || 'Failed to approve request. Please try again.');
-      toast.error('Failed to approve request');
+      
+      // Handle case where error indicates user already exists
+      if (err.message && err.message.includes('already registered')) {
+        setError('User with this email already exists. Please use a different email or update the existing account.');
+        toast.error('User already exists');
+      } else {
+        setError(`Error: ${err.message}`);
+        toast.error(`Failed to approve request: ${err.message}`);
+      }
     } finally {
       setIsSubmitting(false);
     }

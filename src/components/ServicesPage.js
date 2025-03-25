@@ -360,7 +360,7 @@ const ServicesPage = () => {
                             </div>
                     <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mt-2`}>{service.description}</p>
                     <div className="flex justify-between items-center mt-4">
-                      <span className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>${service.price}</span>
+                      <span className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>GH₵{service.price}</span>
                       <div>
                           <button 
                             className="text-blue-400 hover:text-blue-300 mr-3"

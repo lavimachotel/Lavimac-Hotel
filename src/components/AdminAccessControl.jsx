@@ -243,6 +243,43 @@ const AdminAccessControl = ({ children, requiredRole = 'admin' }) => {
         contactNumber: formData.contactNumber
       });
 
+      // Handle case where user already exists
+      if (!result.success && (result.error === 'User already registered' || result.code === 'USER_ALREADY_EXISTS')) {
+        // Just update the request status since user already exists
+        if (selectedRequest) {
+          const { error: updateError } = await supabase
+            .from('access_requests')
+            .update({ status: 'approved' })
+            .eq('id', selectedRequest.id);
+            
+          if (updateError) throw updateError;
+          
+          setSuccess(`User with email ${formData.email} already exists. Access request approved!`);
+          
+          // Reset form and selected request
+          setFormData({
+            email: '',
+            password: '',
+            confirmPassword: '',
+            fullName: '',
+            role: 'staff',
+            department: '',
+            position: '',
+            contactNumber: '',
+            permissions: []
+          });
+          setSelectedRequest(null);
+          
+          // Refresh pending requests and users list
+          fetchUsers();
+          fetchData();
+          setIsSubmitting(false);
+          return;
+        } else {
+          throw new Error('User with this email already exists');
+        }
+      }
+      
       if (!result.success) {
         throw new Error(result.error || 'Failed to create user account');
       }
@@ -286,7 +323,13 @@ const AdminAccessControl = ({ children, requiredRole = 'admin' }) => {
       
     } catch (error) {
       console.error('Error creating user:', error);
-      setError(error.message || 'Failed to create user account. Please try again.');
+      
+      // Handle case where error indicates user already exists
+      if (error.message && error.message.includes('already registered') || error.message.includes('already exists')) {
+        setError('User with this email already exists. Please use a different email or update the existing account.');
+      } else {
+        setError(error.message || 'Failed to create user account. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

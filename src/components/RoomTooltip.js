@@ -17,7 +17,7 @@ const RoomTooltip = ({ room, visible, position }) => {
       }}
     >
       <h4 className="font-semibold">Room {room.id}</h4>
-      <p className="text-sm">{room.type} - ${room.price}/night</p>
+      <p className="text-sm">{room.type} - ₵{room.price}/night</p>
       <p className={`text-sm font-medium ${
         room.status === 'Available' ? 'text-green-500' : 
         room.status === 'Occupied' ? 'text-red-500' : 

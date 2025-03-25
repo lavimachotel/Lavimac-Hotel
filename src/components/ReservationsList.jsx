@@ -6,6 +6,8 @@ import { useGuests } from '../context/GuestContext';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import supabase from '../supabaseClient';
+import ReservationViewModal from './ReservationViewModal';
+import ReservationEditModal from './ReservationEditModal';
 
 const ReservationsList = () => {
   const { theme } = useTheme();
@@ -18,7 +20,8 @@ const ReservationsList = () => {
     checkInGuest,
     checkOutGuest,
     rooms,
-    refreshData
+    refreshData,
+    updateReservation
   } = useRoomReservation();
   const { addGuestToList } = useGuests();
   const [filteredReservations, setFilteredReservations] = useState([]);
@@ -26,11 +29,14 @@ const ReservationsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDebug, setShowDebug] = useState(false); // Hidden by default
   
-  // Modal states for quick actions
+  // Modal states for actions
   const [showRoomAvailabilityModal, setShowRoomAvailabilityModal] = useState(false);
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [showGroupBookingModal, setShowGroupBookingModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCancellation, setSelectedCancellation] = useState(null);
+  const [selectedReservation, setSelectedReservation] = useState(null);
 
   useEffect(() => {
     // Apply filters to reservations
@@ -890,7 +896,7 @@ const ReservationsList = () => {
               >
                 {isProcessing ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -905,6 +911,43 @@ const ReservationsList = () => {
         </div>
       </div>
     );
+  };
+
+  // Handle view reservation
+  const handleViewReservation = (reservation) => {
+    setSelectedReservation(reservation);
+    setShowViewModal(true);
+    
+    // Log activity
+    console.log(`Viewing reservation details for ${reservation.guestName}, Room: ${reservation.roomNumber}`);
+  };
+  
+  // Handle edit reservation
+  const handleEditReservation = (reservation) => {
+    setSelectedReservation(reservation);
+    setShowEditModal(true);
+    
+    // Log activity
+    console.log(`Editing reservation for ${reservation.guestName}, Room: ${reservation.roomNumber}`);
+  };
+  
+  // Handle update reservation
+  const handleUpdateReservation = async (updatedReservation) => {
+    try {
+      // Call the context method to update reservation
+      const result = await updateReservation(updatedReservation);
+      
+      if (result.success) {
+        // Refresh the reservations list
+        refreshData();
+        return Promise.resolve();
+      } else {
+        return Promise.reject(new Error(result.error || 'Failed to update reservation'));
+      }
+    } catch (error) {
+      console.error('Error updating reservation:', error);
+      return Promise.reject(error);
+    }
   };
 
   if (loading) {
@@ -1029,47 +1072,60 @@ const ReservationsList = () => {
                       </span>
                     </td>
                     
-                    <td className="px-4 py-3">
-                      <div className="flex space-x-2">
-                        {(reservation.status === 'Reserved' || reservation.status === 'Confirmed') && (
-                          <>
-                            <button 
-                              onClick={() => handleCancelReservation(reservation.id)}
-                              className="text-red-600 hover:text-red-800"
-                              title="Cancel Reservation"
-                            >
-                              <i className="fas fa-times-circle"></i>
-                            </button>
-                            <button 
-                              onClick={() => handleCheckIn(reservation)}
-                              className="text-green-600 hover:text-green-800"
-                              title="Check In"
-                            >
-                              <i className="fas fa-check-circle"></i>
-                            </button>
-                          </>
-                        )}
-                        {reservation.status === 'Checked In' && (
-                          <button 
-                            onClick={() => handleCheckOut(reservation)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Check Out"
+                    <td className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} px-4 py-3`}>
+                      <div className="flex justify-center space-x-1">
+                        {(reservation.status === 'Confirmed' || reservation.status === 'Reserved') && (
+                          <button
+                            onClick={() => handleCheckIn(reservation)}
+                            className="text-blue-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900"
+                            title="Check In"
                           >
-                            <i className="fas fa-sign-out-alt"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
                           </button>
                         )}
-                        <button 
-                          className="text-indigo-600 hover:text-indigo-800"
+                        {reservation.status === 'Checked In' && (
+                          <button
+                            onClick={() => handleCheckOut(reservation)}
+                            className="text-green-400 hover:text-green-600 p-1 rounded-full hover:bg-green-100 dark:hover:bg-green-900"
+                            title="Check Out"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleViewReservation(reservation)}
+                          className="text-indigo-400 hover:text-indigo-600 p-1 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900"
                           title="View Details"
                         >
-                          <i className="fas fa-eye"></i>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
                         </button>
-                        <button 
-                          className="text-orange-600 hover:text-orange-800"
+                        <button
+                          onClick={() => handleEditReservation(reservation)}
+                          className="text-yellow-400 hover:text-yellow-600 p-1 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-900"
                           title="Edit"
                         >
-                          <i className="fas fa-edit"></i>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                         </button>
+                        {(reservation.status === 'Confirmed' || reservation.status === 'Reserved') && (
+                          <button
+                            onClick={() => handleCancelReservation(reservation.id)}
+                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
+                            title="Cancel"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1189,6 +1245,19 @@ const ReservationsList = () => {
         onClose={() => setShowGroupBookingModal(false)}
         rooms={rooms}
         isDarkMode={isDarkMode}
+      />
+      
+      <ReservationViewModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        reservation={selectedReservation}
+      />
+      
+      <ReservationEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        reservation={selectedReservation}
+        onUpdateReservation={handleUpdateReservation}
       />
     </div>
   );

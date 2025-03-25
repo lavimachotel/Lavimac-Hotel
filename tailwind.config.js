@@ -27,5 +27,10 @@ module.exports = {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addVariant }) {
+      // Add a custom variant for light mode
+      addVariant('light', '.light &');
+    },
+  ],
 }

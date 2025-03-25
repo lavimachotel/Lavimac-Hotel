@@ -12,6 +12,7 @@ const Sidebar = ({ activeLink }) => {
   // Check if user is an admin or a manager
   const isAdmin = user && (user.role === 'admin' || user.role === 'administrator');
   const isManager = user && (user.role === 'manager' || isAdmin); // Admin can also see manager pages
+  const isStaff = user && !isAdmin && !isManager; // Regular staff member
 
   // Sidebar menu items
   const sidebarLinks = [
@@ -19,6 +20,8 @@ const Sidebar = ({ activeLink }) => {
     { icon: 'fa-calendar-check', text: 'Reservations', active: activeLink === 'Reservations' },
     { icon: 'fa-bed', text: 'Rooms', active: activeLink === 'Rooms' },
     { icon: 'fa-users', text: 'Guests', active: activeLink === 'Guests' },
+    // Only show Staff link to managers and admins
+    ...(isStaff ? [] : [{ icon: 'fa-user-tie', text: 'Staff', active: activeLink === 'Staff' }]),
     { icon: 'fa-clipboard-list', text: 'Tasks', active: activeLink === 'Tasks' },
     { icon: 'fa-dollar-sign', text: 'Billing', active: activeLink === 'Billing' },
     { icon: 'fa-concierge-bell', text: 'Services', active: activeLink === 'Services' },
@@ -55,6 +58,9 @@ const Sidebar = ({ activeLink }) => {
         break;
       case 'Guests':
         navigate('/guests');
+        break;
+      case 'Staff':
+        navigate('/staff');
         break;
       case 'Tasks':
         navigate('/tasks');
@@ -135,6 +141,21 @@ const Sidebar = ({ activeLink }) => {
       
       {/* Sidebar Footer */}
       <div className={`p-4 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-gray-300'}`}>
+        {/* End Shift Button - only for staff */}
+        {isStaff && (
+          <button 
+            onClick={() => navigate('/staff/time-attendance', { state: { clockType: 'out' } })}
+            className={`flex items-center w-full p-2 mb-2 rounded-lg pulse-button ${
+              theme === 'dark'
+                ? 'bg-red-700 hover:bg-red-800 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
+          >
+            <i className={`fas fa-clock ${sidebarOpen ? 'mr-3' : 'mx-auto'} text-xl`}></i>
+            {sidebarOpen && <span>End Shift</span>}
+          </button>
+        )}
+        
         {/* Theme Toggle Button */}
         <button 
           onClick={toggleTheme} 

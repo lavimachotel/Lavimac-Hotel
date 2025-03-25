@@ -47,12 +47,12 @@ export const UserProvider = ({ children }) => {
     // Set a demo user (for development only)
     const useDemoUser = () => {
         const demoUser = {
-            id: 'demo-user-id',
-            email: 'demo@example.com',
-            role: 'staff',
-            fullName: 'Demo User',
-            position: 'Demo Position',
-            department: 'Development',
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            email: 'admin@example.com',
+            role: 'admin',
+            fullName: 'Admin User',
+            position: 'Administrator',
+            department: 'Management',
             contactNumber: '123-456-7890',
             avatar_url: null
         };

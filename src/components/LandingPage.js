@@ -49,49 +49,12 @@ function LandingPage() {
           <div className="buttons">
             <Link to="/login" className="button button-primary dark:shadow-[0_0_15px_rgba(0,0,255,0.5)] dark:hover:shadow-[0_0_25px_rgba(0,0,255,0.6)] light:shadow-[0_0_15px_rgba(0,0,255,0.3)] light:hover:shadow-[0_0_25px_rgba(0,0,255,0.4)]">
               <i className="fas fa-sign-in-alt"></i>
-              Login
+              Login to Dashboard
             </Link>
             <Link to="/request-access" className="button button-outline">
               <i className="fas fa-user-plus"></i>
               Request Access
             </Link>
-            <div className="relative">
-              <button 
-                onClick={() => setShowLoginOptions(!showLoginOptions)}
-                className="button button-outline"
-              >
-                <i className="fas fa-sign-in-alt"></i>
-                Login Options
-              </button>
-              
-              {showLoginOptions && (
-                <div className="absolute mt-2 right-0 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-10">
-                  <div className="py-1" role="menu" aria-orientation="vertical">
-                    <button
-                      onClick={() => handleLogin('admin')}
-                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      role="menuitem"
-                    >
-                      Login as Admin
-                    </button>
-                    <button
-                      onClick={() => handleLogin('manager')}
-                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      role="menuitem"
-                    >
-                      Login as Manager
-                    </button>
-                    <button
-                      onClick={() => handleLogin('staff')}
-                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      role="menuitem"
-                    >
-                      Login as Staff
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="stats">

@@ -1,16 +1,111 @@
 import supabase from '../supabaseClient';
 
 /**
+ * Check if a user with the given email already exists
+ * @param {string} email - The email to check
+ * @returns {Promise<boolean>} - True if user exists, false otherwise
+ */
+export const checkUserExists = async (email) => {
+  try {
+    console.log(`Checking if user with email ${email} already exists...`);
+    
+    // First try the most reliable method - check the user_profiles table
+    // We're storing email in profiles, so this should work most of the time
+    console.log('Checking user_profiles table first...');
+    const { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('user_id, email')
+      .eq('email', email)
+      .maybeSingle();
+    
+    if (profileError) {
+      console.warn('Error checking user_profiles table:', profileError);
+    } else if (profileData) {
+      console.log('User found in user_profiles table:', profileData);
+      return true;
+    }
+    
+    // Try the Supabase auth API (this might not have the required permissions)
+    try {
+      console.log('Trying Supabase auth admin API...');
+      const { data, error } = await supabase.auth.admin.getUserByEmail(email);
+      
+      if (error) {
+        console.warn('Error using admin API:', error);
+      } else if (data && data.user) {
+        console.log('User found via admin API:', data.user.id);
+        return true;
+      }
+    } catch (err) {
+      console.warn('Admin API not available:', err);
+    }
+    
+    // Try a sign-in attempt that doesn't create a user
+    try {
+      console.log('Trying sign-in attempt...');
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false
+        }
+      });
+      
+      // If we get a "User not found" error, then the user doesn't exist
+      // If we get any other error, it's likely the user exists
+      if (signInError) {
+        if (signInError.message.includes('User not found')) {
+          console.log('User not found via sign-in attempt');
+          return false;
+        } else {
+          // Other errors might indicate user exists but something else went wrong
+          console.log('Sign-in error, user might exist:', signInError);
+        }
+      } else {
+        // If no error, user exists and OTP was sent
+        console.log('OTP sent, user exists');
+        return true;
+      }
+    } catch (err) {
+      console.warn('Sign-in attempt failed:', err);
+    }
+    
+    // If we've tried everything and haven't returned, assume user does not exist
+    console.log('All checks completed, assuming user does not exist');
+    return false;
+  } catch (error) {
+    console.error('Error checking if user exists:', error);
+    // In case of error, return false to allow the attempt to create
+    // but log a clear message
+    console.warn('Due to error, defaulting to assume user does not exist');
+    return false;
+  }
+};
+
+/**
  * Create a new user account with profile
  * @param {Object} userData - The user data containing email, password, role, etc.
  * @returns {Promise<Object>} - The created user data or error
  */
 export const createUserAccount = async (userData) => {
   try {
-    // Step 1: Instead of directly accessing the auth.users table,
-    // we'll use a more permission-friendly approach
+    console.log('Starting createUserAccount for email:', userData.email);
     
-    // Option 1: Use signUp which doesn't require admin privileges
+    // First check if user already exists
+    const userExists = await checkUserExists(userData.email);
+    if (userExists) {
+      console.log('User already exists, returning error code');
+      return {
+        success: false,
+        error: 'User already registered',
+        code: 'USER_ALREADY_EXISTS',
+        message: `A user with email ${userData.email} is already registered in the system.`
+      };
+    }
+    
+    console.log('User does not exist, proceeding with account creation');
+    
+    // Step 1: Create auth user via signUp
+    console.log('Step 1: Creating auth user via signUp');
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
@@ -22,9 +117,26 @@ export const createUserAccount = async (userData) => {
       }
     });
 
-    if (authError) throw authError;
+    if (authError) {
+      console.error('Error creating auth user:', authError);
+      
+      // Check if error indicates user already exists
+      if (authError.message.includes('already registered')) {
+        return {
+          success: false,
+          error: 'User already registered',
+          code: 'USER_ALREADY_EXISTS',
+          message: `A user with email ${userData.email} is already registered in the system.`
+        };
+      }
+      
+      throw authError;
+    }
+    
+    console.log('Auth user created successfully:', authData.user.id);
 
     // Step 2: Create the user profile
+    console.log('Step 2: Creating user profile');
     const { data: profileData, error: profileError } = await supabase
       .from('user_profiles')
       .insert([
@@ -35,7 +147,8 @@ export const createUserAccount = async (userData) => {
           position: userData.position,
           department: userData.department,
           contact_number: userData.contactNumber,
-          permissions: userData.permissions
+          permissions: userData.permissions,
+          email: userData.email // Store email in profile for easier queries
         }
       ])
       .select('*')
@@ -43,12 +156,25 @@ export const createUserAccount = async (userData) => {
 
     if (profileError) {
       console.error("Error creating user profile:", profileError);
-      // We can't easily delete the auth user without admin privileges
-      // Consider adding a "pending_deletion" flag to handle this case
+      
+      // Check if profile already exists (unique constraint violation)
+      if (profileError.code === '23505') { // PostgreSQL unique constraint violation
+        console.log('Profile already exists, returning USER_ALREADY_EXISTS');
+        return {
+          success: false,
+          error: 'User already registered',
+          code: 'USER_ALREADY_EXISTS',
+          message: `A profile for user ${userData.email} already exists.`
+        };
+      }
+      
       throw profileError;
     }
+    
+    console.log('User profile created successfully');
 
     // Step 3: Store the credentials for later retrieval
+    console.log('Step 3: Storing staff credentials');
     const { data: credData, error: credError } = await supabase
       .rpc('store_staff_credentials', {
         p_user_id: authData.user.id,
@@ -64,7 +190,7 @@ export const createUserAccount = async (userData) => {
     }
 
     // Set up RLS policy for this user using a stored procedure or function
-    // This approach avoids direct access to auth.users table
+    console.log('Step 4: Setting up user permissions');
     const { error: rlsError } = await supabase
       .rpc('setup_user_permissions', { 
         user_id: authData.user.id,
@@ -74,21 +200,36 @@ export const createUserAccount = async (userData) => {
     if (rlsError) {
       console.warn("Warning: Could not set up RLS policies for user:", rlsError);
       // Don't throw - we want to continue even if this fails
+    } else {
+      console.log("User permissions set up successfully");
     }
-
+    
+    console.log('User account creation completed successfully');
     return {
       success: true,
       user: {
         ...authData.user,
         profile: profileData
-      }
+      },
+      message: `User account for ${userData.email} created successfully`
     };
   } catch (error) {
     console.error('Error creating user account:', error);
     
+    // Check for common error patterns
+    if (error.message && error.message.includes('already registered')) {
+      return {
+        success: false,
+        error: 'User already registered',
+        code: 'USER_ALREADY_EXISTS',
+        message: `A user with email ${userData.email} is already registered.`
+      };
+    }
+    
     return {
       success: false,
-      error: error.message || 'Failed to create user account'
+      error: error.message || 'Failed to create user account',
+      code: error.code || 'UNKNOWN_ERROR'
     };
   }
 };

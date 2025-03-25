@@ -27,7 +27,7 @@ const SettingsPage = () => {
     timeZone: 'GMT+0',
     dateFormat: 'MM/DD/YYYY',
     timeFormat: '12-hour',
-    currency: 'USD',
+    currency: 'GHS',
     notifications: {
       email: true,
       sms: false,
@@ -404,6 +404,7 @@ const SettingsPage = () => {
                           onChange={handleChange}
                           className={`w-full px-4 py-2 rounded ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'} border focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
+                          <option value="GHS">GHS (GH₵)</option>
                           <option value="USD">USD ($)</option>
                           <option value="EUR">EUR (€)</option>
                           <option value="GBP">GBP (£)</option>

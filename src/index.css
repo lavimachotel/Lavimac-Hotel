@@ -233,6 +233,24 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Pulse animation for the End Shift button */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.pulse-button {
+  box-shadow: 0 0 0 rgba(220, 38, 38, 0.4);
+  animation: pulse 2s infinite;
+}
+
 /* Light mode specific overrides */
 .light-mode .landing-page,
 .light-mode .min-h-screen {
@@ -251,4 +269,70 @@ body {
 .light-mode .max-w-md {
   background-color: var(--card-bg);
   border-color: var(--border-color);
+}
+
+/* Enhanced Theme Transition */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body, 
+div, 
+section, 
+header, 
+footer, 
+input, 
+textarea, 
+select,
+button,
+table,
+th,
+td {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease, 
+              box-shadow 0.3s ease;
+}
+
+/* Fix for the light theme text color in inputs and selects */
+.light-mode input,
+.light-mode select,
+.light-mode textarea {
+  color: var(--text-primary);
+}
+
+/* Fix for light theme on StaffTimeAttendancePage */
+.light-mode .staff-time-attendance-page {
+  background-color: var(--bg-secondary);
+}
+
+/* Dark/Light mode specifics for data tables */
+.dark-mode th {
+  color: #93c5fd;
+}
+
+.light-mode th {
+  color: #3b82f6;
+}
+
+.dark-mode td {
+  color: #ffffff;
+}
+
+.light-mode td {
+  color: #1f2937;
+}
+
+/* Enhanced visibility for light theme borders */
+.light-mode .border-gray-700 {
+  border-color: #e5e7eb;
+}
+
+/* Calendar date input color fix for light theme */
+.light-mode input[type="date"] {
+  color-scheme: light;
+}
+
+.dark-mode input[type="date"] {
+  color-scheme: dark;
 }

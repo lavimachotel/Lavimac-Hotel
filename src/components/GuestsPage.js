@@ -8,11 +8,14 @@ import DeleteConfirmationModal from './DeleteConfirmationModal';
 import { useGuests } from '../context/GuestContext';
 import { useTheme } from '../context/ThemeContext';
 import { format, formatDistance } from 'date-fns';
+import { FaEye, FaEdit, FaTrash, FaSignOutAlt } from 'react-icons/fa';
+import { useRoomReservation } from '../context/RoomReservationContext';
 
 const GuestsPage = () => {
     const { guestList, addGuestToList, viewGuest, editGuest, deleteGuest } = useGuests();
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
+    const { updateRoomStatus } = useRoomReservation();
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -120,8 +123,16 @@ const GuestsPage = () => {
     const handleCheckOut = (guestId) => {
         const guest = guestList.find(g => g.id === guestId);
         if (guest) {
+            // Update guest status to Checked Out
+            const updatedData = { status: 'Checked Out' };
+            editGuest(guestId, updatedData);
+            
+            // Update room status to Available in RoomReservationContext
+            if (guest.room) {
+                updateRoomStatus(guest.room, 'Available');
+            }
+            
             addActivity(`${guest.name} checked out from Room ${guest.room}`);
-            setIsCheckInModalOpen(false);
         }
     };
 
@@ -155,7 +166,7 @@ const GuestsPage = () => {
             }
             
             // Return formatted date
-            return dateObj.toLocaleDateString('en-US', {
+            return dateObj.toLocaleDateString('en-GB', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
@@ -251,8 +262,12 @@ const GuestsPage = () => {
                                                 <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{guest.email || '-'}</td>
                                                 <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{guest.phone || '-'}</td>
                                                 <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{guest.room || '-'}</td>
-                                                <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{formatDate(guest.checkIn)}</td>
-                                                <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{formatDate(guest.checkOut)}</td>
+                                                <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                                                    {formatDate(guest.checkIn || guest.check_in)}
+                                                </td>
+                                                <td className={`px-6 py-4 whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                                                    {formatDate(guest.checkOut || guest.check_out)}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span className={`px-2 py-1 text-xs rounded ${
                                                         guest.status === 'Checked In' ? 'bg-blue-200 text-blue-800' : 
@@ -267,20 +282,32 @@ const GuestsPage = () => {
                                                     <button 
                                                         className="text-blue-400 hover:text-blue-300 mr-3"
                                                         onClick={() => handleViewGuest(guest.id)}
+                                                        title="View"
                                                     >
-                                                        View
+                                                        <FaEye />
                                                     </button>
                                                     <button 
                                                         className="text-green-400 hover:text-green-300 mr-3"
                                                         onClick={() => handleEditGuest(guest.id)}
+                                                        title="Edit"
                                                     >
-                                                        Edit
+                                                        <FaEdit />
                                                     </button>
                                                     <button 
-                                                        className="text-red-400 hover:text-red-300"
+                                                        className="text-red-400 hover:text-red-300 mr-3"
                                                         onClick={() => handleDeleteGuest(guest.id)}
+                                                        title="Delete"
                                                     >
-                                                        Delete
+                                                        <FaTrash />
+                                                    </button>
+                                                    <button 
+                                                        className="text-orange-400 hover:text-orange-300"
+                                                        onClick={() => handleCheckOut(guest.id)}
+                                                        title="Check Out"
+                                                        disabled={guest.status === 'Checked Out'}
+                                                        style={{ opacity: guest.status === 'Checked Out' ? 0.5 : 1 }}
+                                                    >
+                                                        <FaSignOutAlt />
                                                     </button>
                                                 </td>
                                             </tr>
