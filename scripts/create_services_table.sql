@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS service_requests (
   service_id INTEGER REFERENCES services(id),
   service_name VARCHAR(255) NOT NULL,
   requested_by VARCHAR(255) NOT NULL,
+  guest_id UUID,
   requested_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   status VARCHAR(50) NOT NULL CHECK (status IN ('Pending', 'In Progress', 'Completed', 'Cancelled')),
   notes TEXT,
@@ -36,11 +37,15 @@ ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_requests ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for anonymous users (for development purposes)
+DROP POLICY IF EXISTS anon_access_services ON services;
 CREATE POLICY anon_access_services ON services FOR ALL USING (true);
+DROP POLICY IF EXISTS anon_access_service_requests ON service_requests;
 CREATE POLICY anon_access_service_requests ON service_requests FOR ALL USING (true);
 
 -- Create policy for authenticated users
+DROP POLICY IF EXISTS auth_access_services ON services;
 CREATE POLICY auth_access_services ON services FOR ALL USING (true);
+DROP POLICY IF EXISTS auth_access_service_requests ON service_requests;
 CREATE POLICY auth_access_service_requests ON service_requests FOR ALL USING (true);
 
 -- Create function to update the updated_at column
@@ -53,12 +58,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for services table
+DROP TRIGGER IF EXISTS set_services_timestamp ON services;
 CREATE TRIGGER set_services_timestamp
 BEFORE UPDATE ON services
 FOR EACH ROW
 EXECUTE FUNCTION update_modified_column();
 
 -- Create trigger for service_requests table
+DROP TRIGGER IF EXISTS set_service_requests_timestamp ON service_requests;
 CREATE TRIGGER set_service_requests_timestamp
 BEFORE UPDATE ON service_requests
 FOR EACH ROW
@@ -69,6 +76,7 @@ DROP PUBLICATION IF EXISTS supabase_realtime CASCADE;
 CREATE PUBLICATION supabase_realtime;
 ALTER PUBLICATION supabase_realtime ADD TABLE services, service_requests;
 
+/*
 -- Insert sample data for services
 INSERT INTO services (name, price, description, available)
 VALUES
@@ -87,6 +95,7 @@ VALUES
   ('Room 203', 2, 'Laundry', 'Michael Brown', 'Completed', 'Two loads of laundry completed'),
   ('Room 512', 4, 'Airport Shuttle', 'Emma Johnson', 'Pending', 'Needs pickup at 4:00 PM tomorrow'),
   ('Room 107', 1, 'Room Cleaning', 'David Smith', 'Cancelled', 'Guest checked out early');
+*/
 
 -- Grant privileges
 GRANT ALL ON services TO authenticated;

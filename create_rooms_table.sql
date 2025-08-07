@@ -15,7 +15,7 @@ BEGIN
     -- Create the rooms table if it doesn't exist
     CREATE TABLE public.rooms (
       id INT PRIMARY KEY,
-      room_number INT NOT NULL,
+      room_number TEXT NOT NULL,
       type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'Available',
       price NUMERIC(10, 2) NOT NULL,
@@ -30,20 +30,52 @@ BEGIN
     CREATE INDEX idx_rooms_type ON public.rooms(type);
 
     -- Insert initial room data
+    -- 3 Standard rooms - Mint, Cinnamon, Basil - 500 Ghana Cedis
+    -- 5 Superior rooms - Licorice, Marigold, Lotus, Jasmine, Private - 750 Ghana Cedis
+    -- 1 Executive room - Chamomile - 1,250 Ghana Cedis
     INSERT INTO public.rooms (id, room_number, type, status, price, capacity, amenities)
-    SELECT
-      i as id,
-      i as room_number,
-      CASE WHEN i <= 110 THEN 'Standard' WHEN i <= 120 THEN 'Deluxe' ELSE 'Suite' END as type,
-      'Available' as status,
-      CASE WHEN i <= 110 THEN 120 WHEN i <= 120 THEN 180 ELSE 250 END as price,
-      CASE WHEN i <= 110 THEN 2 WHEN i <= 120 THEN 4 ELSE 6 END as capacity,
-      ARRAY['WiFi', 'TV', 'AC'] as amenities
-    FROM generate_series(101, 125) i;
+    VALUES
+      -- Standard Rooms
+      (101, 'Mint', 'Standard', 'Available', 500, 2, ARRAY['WiFi', 'TV', 'AC']),
+      (102, 'Cinnamon', 'Standard', 'Available', 500, 2, ARRAY['WiFi', 'TV', 'AC']),
+      (103, 'Basil', 'Standard', 'Available', 500, 2, ARRAY['WiFi', 'TV', 'AC']),
+      
+      -- Superior Rooms
+      (104, 'Licorice', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (105, 'Marigold', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (106, 'Lotus', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (107, 'Jasmine', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (108, 'Private', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      
+      -- Executive Room
+      (109, 'Chamomile', 'Executive', 'Available', 1250, 4, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar', 'Jacuzzi', 'Room Service']);
 
     RAISE NOTICE 'Rooms table created and populated with sample data';
   ELSE
     RAISE NOTICE 'Rooms table already exists, checking for updates needed...';
+    
+    -- Delete existing rooms and repopulate with the new room configuration
+    DELETE FROM public.rooms;
+    
+    -- Insert the updated room data
+    INSERT INTO public.rooms (id, room_number, type, status, price, capacity, amenities)
+    VALUES
+      -- Standard Rooms - 500 Ghana Cedis
+      (101, 'Mint', 'Standard', 'Available', 500, 2, ARRAY['WiFi', 'TV', 'AC']),
+      (102, 'Cinnamon', 'Standard', 'Available', 500, 2, ARRAY['WiFi', 'TV', 'AC']),
+      (103, 'Basil', 'Standard', 'Available', 500, 2, ARRAY['WiFi', 'TV', 'AC']),
+      
+      -- Superior Rooms - 750 Ghana Cedis
+      (104, 'Licorice', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (105, 'Marigold', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (106, 'Lotus', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (107, 'Jasmine', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      (108, 'Private', 'Superior', 'Available', 750, 3, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar']),
+      
+      -- Executive Room - 1,250 Ghana Cedis
+      (109, 'Chamomile', 'Executive', 'Available', 1250, 4, ARRAY['WiFi', 'TV', 'AC', 'Mini Bar', 'Jacuzzi', 'Room Service']);
+      
+    RAISE NOTICE 'Rooms table updated with new room configuration.';
   END IF;
 END $$;
 
@@ -51,8 +83,19 @@ END $$;
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 
 -- Create a policy to allow public access to the rooms table
-CREATE POLICY IF NOT EXISTS "Allow public access to rooms" 
-ON public.rooms FOR ALL USING (true);
+DO $$
+BEGIN
+  -- Check if the policy already exists
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'rooms' AND policyname = 'Allow public access to rooms'
+  ) THEN
+    -- Create the policy if it doesn't exist
+    CREATE POLICY "Allow public access to rooms" ON public.rooms FOR ALL USING (true);
+    RAISE NOTICE 'Created policy "Allow public access to rooms"';
+  ELSE
+    RAISE NOTICE 'Policy "Allow public access to rooms" already exists';
+  END IF;
+END $$;
 
 -- Create a function to automatically update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_rooms_modified_column() 
@@ -75,14 +118,34 @@ GRANT ALL ON public.rooms TO anon, authenticated;
 
 -- Add realtime functionality
 DO $$
+DECLARE
+  pub_exists boolean;
 BEGIN
-  PERFORM pg_catalog.pg_publication_tables
-  WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'rooms';
+  -- Check if the publication exists and contains our table
+  SELECT EXISTS (
+    SELECT 1 
+    FROM pg_publication pub
+    JOIN pg_publication_rel pubrel ON pub.oid = pubrel.prpubid
+    JOIN pg_class tbl ON pubrel.prrelid = tbl.oid
+    JOIN pg_namespace ns ON tbl.relnamespace = ns.oid
+    WHERE pub.pubname = 'supabase_realtime'
+    AND ns.nspname = 'public'
+    AND tbl.relname = 'rooms'
+  ) INTO pub_exists;
   
-  IF NOT FOUND THEN
+  IF NOT pub_exists THEN
+    -- Add the table to the publication
     ALTER publication supabase_realtime ADD TABLE public.rooms;
     RAISE NOTICE 'Added rooms table to realtime publication';
+  ELSE
+    RAISE NOTICE 'Table already in realtime publication';
   END IF;
+EXCEPTION
+  WHEN undefined_object THEN
+    RAISE NOTICE 'Publication supabase_realtime does not exist. Creating it...';
+    -- Create the publication if it doesn't exist
+    CREATE PUBLICATION supabase_realtime FOR TABLE public.rooms;
+    RAISE NOTICE 'Created supabase_realtime publication with rooms table';
 END $$;
 
 -- Sync room status with guest information

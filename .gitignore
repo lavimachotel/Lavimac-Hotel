@@ -1,1 +1,32 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Builds and caches
+build/
+dist/
+client/build/
+.cache/
+.turbo/
+.next/
+coverage/
+
+# Env and secrets
+.env
+.env.*
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Vercel / Supabase temp
+.vercel/
+supabase/.temp/
 .vercel
