@@ -1,70 +1,151 @@
-# Getting Started with Create React App
+# Hotel Management System 
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack hotel management system with real-time room status updates, guest management, reservation handling, and comprehensive reporting. Built with React, Node.js, Express, and Supabase for persistent storage.
 
-## Available Scripts
+## Project Structure
 
-In the project directory, you can run:
+The project consists of two main parts:
 
-### `npm start`
+1. **Client**: React-based frontend application
+2. **Server**: Node.js/Express backend
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Features
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Dashboard**: Real-time room statistics and occupancy information
+- **Room Management**: View, filter, and manage rooms with status tracking
+- **Guest Management**: Check-in and check-out functionality with guest information
+- **Reservations**: Create, modify and cancel reservations
+- **Real-time Updates**: Live synchronization with database changes
+- **Reports**: Generate and export reports in various formats
 
-### `npm test`
+## Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Node.js (v14 or later)
+- npm (v6 or later)
+- Supabase account
 
-### `npm run build`
+## Getting Started
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Clone the Repository
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+git clone <repository-url>
+cd hotel-management
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Setting Up the Backend
 
-### `npm run eject`
+```bash
+# Install server dependencies
+npm install
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Start the server
+npm start
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The server will start at http://localhost:3001
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Setting Up the Frontend
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+# Change to client directory
+cd client
 
-## Learn More
+# Install client dependencies
+npm install
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+# Start the development server
+npm start
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The client will start at http://localhost:3000
 
-### Code Splitting
+## Database Setup
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+The application uses Supabase as its backend database. You'll need to set up the following:
 
-### Analyzing the Bundle Size
+1. Create a Supabase account at https://supabase.com
+2. Create a new project
+3. Set up the required tables using the SQL scripts in the `db_scripts` folder
+4. Configure your Supabase connection in the client and server `.env` files
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+See `db_scripts/README.md` for detailed database setup instructions.
 
-### Making a Progressive Web App
+## Environment Variables
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Client Environment Variables
 
-### Advanced Configuration
+Create a `.env` file in the `client` directory:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```
+REACT_APP_SUPABASE_URL=your_supabase_url
+REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-### Deployment
+### Server Environment Variables
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Create a `.env` file in the root directory:
 
-### `npm run build` fails to minify
+```
+PORT=3001
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_KEY=your_supabase_service_key
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Development Notes
+
+The application requires an active Supabase connection to function properly. All data is stored and retrieved from the Supabase database with real-time synchronization.
+
+## Troubleshooting
+
+### Supabase Connection Issues
+
+If you're encountering connection issues with Supabase, check:
+
+1. Your Supabase project is active
+2. Your API credentials in `.env` files are correct
+3. The appropriate RLS (Row Level Security) policies are in place
+   - See `README-RLS-FIX.md` for instructions on fixing common RLS issues
+
+### Room Display Issues
+
+If rooms aren't displaying correctly:
+
+1. Check browser console for error messages
+2. Verify that Supabase has room data in the correct format
+3. Try clearing your browser's local storage
+4. Enable mock data mode temporarily to see if the issue is with your data source
+
+## Building for Production
+
+### Client Build
+
+```bash
+cd client
+npm run build
+```
+
+This creates an optimized production build in the `client/build` folder.
+
+### Server Build
+
+```bash
+npm run build
+```
+
+## Deployment
+
+The application can be deployed to various hosting services:
+
+1. **Frontend**: Deploy the `client/build` folder to services like Netlify, Vercel, or any static hosting
+2. **Backend**: Deploy the Node.js server to services like Heroku, Railway, or any Node.js hosting
+
+Remember to set the appropriate environment variables on your hosting provider.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 

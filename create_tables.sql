@@ -1,243 +1,236 @@
--- Hotel Management System Database Setup Script
--- This script creates all the necessary tables and sets up Row Level Security (RLS) policies
-
--- NOTE: The JWT secret should be configured in the Supabase dashboard:
--- 1. Go to your Supabase project dashboard
--- 2. Navigate to Settings > API
--- 3. Under "JWT Settings", you can configure your JWT expiry time
--- 4. The JWT secret is automatically managed by Supabase
-
 -- Create access_requests table
 CREATE TABLE IF NOT EXISTS access_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  full_name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  position TEXT NOT NULL,
-  department TEXT NOT NULL,
-  reason TEXT NOT NULL,
-  contact_number TEXT,
-  status TEXT DEFAULT 'pending',
-  processed_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  request_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id BIGSERIAL PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    position TEXT NOT NULL,
+    department TEXT NOT NULL,
+    reason TEXT,
+    contact_number TEXT,
+    request_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status TEXT DEFAULT 'pending',
+    processed_by UUID REFERENCES auth.users(id),
+    processed_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Create permissions table
 CREATE TABLE IF NOT EXISTS permissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL UNIQUE,
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT
 );
 
 -- Create user_profiles table
 CREATE TABLE IF NOT EXISTS user_profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) NOT NULL UNIQUE,
-  full_name TEXT NOT NULL,
-  position TEXT,
-  department TEXT,
-  contact_number TEXT,
-  role TEXT DEFAULT 'user',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id),
+    full_name TEXT,
+    position TEXT,
+    department TEXT,
+    contact_number TEXT,
+    role TEXT DEFAULT 'staff',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create user_permissions table
+-- Create user_permissions junction table
 CREATE TABLE IF NOT EXISTS user_permissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) NOT NULL,
-  permission_id UUID REFERENCES permissions(id) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, permission_id)
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    UNIQUE(user_id, permission_id)
 );
 
 -- Insert default permissions
 INSERT INTO permissions (name, description) VALUES
-  ('manage_users', 'Create, update, and delete user accounts'),
-  ('manage_rooms', 'Create, update, and delete room information'),
-  ('manage_reservations', 'Create, update, and delete reservations'),
-  ('manage_guests', 'Create, update, and delete guest information'),
-  ('manage_billing', 'Create, update, and delete billing information'),
-  ('manage_services', 'Create, update, and delete hotel services'),
-  ('manage_tasks', 'Create, update, and delete tasks'),
-  ('view_reports', 'View hotel reports and analytics'),
-  ('manage_settings', 'Update hotel settings')
+    ('manage_reservations', 'Create, update, and delete reservations'),
+    ('manage_rooms', 'Manage room status and details'),
+    ('manage_guests', 'Access and modify guest information'),
+    ('manage_billing', 'Process payments and manage billing'),
+    ('view_reports', 'Access reporting and analytics'),
+    ('manage_staff', 'Manage staff accounts and permissions'),
+    ('system_settings', 'Configure system settings')
 ON CONFLICT (name) DO NOTHING;
 
--- Enable Row Level Security
+-- Enable Row Level Security on all tables
 ALTER TABLE access_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_permissions ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if needed (uncomment if you want to recreate policies)
-DROP POLICY IF EXISTS "Anyone can create access requests" ON access_requests;
-DROP POLICY IF EXISTS "Users can view their own access requests" ON access_requests;
-DROP POLICY IF EXISTS "Admins can view all access requests" ON access_requests;
-DROP POLICY IF EXISTS "Admins can update access requests" ON access_requests;
-
-DROP POLICY IF EXISTS "Permissions are viewable by all authenticated users" ON permissions;
-DROP POLICY IF EXISTS "Admins can insert permissions" ON permissions;
-DROP POLICY IF EXISTS "Admins can update permissions" ON permissions;
-DROP POLICY IF EXISTS "Admins can delete permissions" ON permissions;
-
-DROP POLICY IF EXISTS "Users can view their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON user_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can insert profiles" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can delete profiles" ON user_profiles;
-
-DROP POLICY IF EXISTS "Users can view their own permissions" ON user_permissions;
-DROP POLICY IF EXISTS "Admins can view all permissions" ON user_permissions;
-DROP POLICY IF EXISTS "Admins can insert user permissions" ON user_permissions;
-DROP POLICY IF EXISTS "Admins can update user permissions" ON user_permissions;
-DROP POLICY IF EXISTS "Admins can delete user permissions" ON user_permissions;
-
--- Create a function to check if a user is an admin without causing recursion
-CREATE OR REPLACE FUNCTION is_admin_by_role()
-RETURNS BOOLEAN AS $$
-DECLARE
-  user_role TEXT;
-BEGIN
-  SELECT role INTO user_role FROM user_profiles
-  WHERE user_id = auth.uid()
-  LIMIT 1;
-  
-  RETURN user_role = 'admin';
-EXCEPTION
-  WHEN OTHERS THEN
-    RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Create RLS policies for access_requests
-CREATE POLICY "Anyone can create access requests"
-  ON access_requests FOR INSERT
-  TO anon, authenticated
-  WITH CHECK (true);
+CREATE POLICY "Anyone can insert access requests" 
+ON access_requests 
+FOR INSERT 
+WITH CHECK (true);
 
-CREATE POLICY "Users can view their own access requests"
-  ON access_requests FOR SELECT
-  TO authenticated
-  USING (email = auth.jwt() ->> 'email');
+CREATE POLICY "Admins can view access requests" 
+ON access_requests 
+FOR SELECT 
+USING (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
-CREATE POLICY "Admins can view all access requests"
-  ON access_requests FOR SELECT
-  TO authenticated
-  USING (is_admin_by_role());
-
-CREATE POLICY "Admins can update access requests"
-  ON access_requests FOR UPDATE
-  TO authenticated
-  USING (is_admin_by_role())
-  WITH CHECK (is_admin_by_role());
+CREATE POLICY "Admins can update access requests" 
+ON access_requests 
+FOR UPDATE 
+USING (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
 -- Create RLS policies for permissions
-CREATE POLICY "Permissions are viewable by all authenticated users"
-  ON permissions FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Admins can insert permissions"
-  ON permissions FOR INSERT
-  TO authenticated
-  WITH CHECK (is_admin_by_role());
-
-CREATE POLICY "Admins can update permissions"
-  ON permissions FOR UPDATE
-  TO authenticated
-  USING (is_admin_by_role())
-  WITH CHECK (is_admin_by_role());
-
-CREATE POLICY "Admins can delete permissions"
-  ON permissions FOR DELETE
-  TO authenticated
-  USING (is_admin_by_role());
+CREATE POLICY "Anyone can view permissions" 
+ON permissions 
+FOR SELECT 
+USING (true);
 
 -- Create RLS policies for user_profiles
-CREATE POLICY "Users can view their own profile"
-  ON user_profiles FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
+CREATE POLICY "Users can view their own profiles" 
+ON user_profiles 
+FOR SELECT 
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Admins can view all profiles"
-  ON user_profiles FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles up
-      WHERE up.user_id = auth.uid() AND up.role = 'admin'
-    )
-  );
+CREATE POLICY "Admins can view all profiles" 
+ON user_profiles 
+FOR SELECT 
+USING (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
-CREATE POLICY "Users can update their own profile"
-  ON user_profiles FOR UPDATE
-  TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Admins can insert profiles" 
+ON user_profiles 
+FOR INSERT 
+WITH CHECK (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+) OR auth.uid() = user_id);
 
-CREATE POLICY "Admins can insert profiles"
-  ON user_profiles FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    (
-      EXISTS (
-        SELECT 1 FROM user_profiles up
-        WHERE up.user_id = auth.uid() AND up.role = 'admin'
-      )
-    )
-    OR
-    -- Allow users to create their own profile during signup
-    user_id = auth.uid()
-  );
+CREATE POLICY "Users can update their own profiles" 
+ON user_profiles 
+FOR UPDATE 
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Admins can delete profiles"
-  ON user_profiles FOR DELETE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles up
-      WHERE up.user_id = auth.uid() AND up.role = 'admin'
-    )
-  );
+CREATE POLICY "Admins can update any profile" 
+ON user_profiles 
+FOR UPDATE 
+USING (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
 -- Create RLS policies for user_permissions
-CREATE POLICY "Users can view their own permissions"
-  ON user_permissions FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
+CREATE POLICY "Users can view their own permissions" 
+ON user_permissions 
+FOR SELECT 
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Admins can view all permissions"
-  ON user_permissions FOR SELECT
-  TO authenticated
-  USING (is_admin_by_role());
+CREATE POLICY "Admins can view all permissions" 
+ON user_permissions 
+FOR SELECT 
+USING (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
-CREATE POLICY "Admins can insert user permissions"
-  ON user_permissions FOR INSERT
-  TO authenticated
-  WITH CHECK (is_admin_by_role());
+CREATE POLICY "Admins can insert permissions" 
+ON user_permissions 
+FOR INSERT 
+WITH CHECK (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
-CREATE POLICY "Admins can update user permissions"
-  ON user_permissions FOR UPDATE
-  TO authenticated
-  USING (is_admin_by_role())
-  WITH CHECK (is_admin_by_role());
+CREATE POLICY "Admins can update permissions" 
+ON user_permissions 
+FOR UPDATE 
+USING (auth.uid() IN (
+  SELECT user_id FROM user_profiles WHERE role IN ('admin', 'administrator')
+));
 
-CREATE POLICY "Admins can delete user permissions"
-  ON user_permissions FOR DELETE
-  TO authenticated
-  USING (is_admin_by_role());
+-- Create invoices table
+CREATE TABLE IF NOT EXISTS public.invoices (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  guest_name TEXT NOT NULL,
+  room_number TEXT NOT NULL,
+  check_in_date TEXT NOT NULL,
+  check_out_date TEXT NOT NULL,
+  room_type TEXT NOT NULL DEFAULT 'Standard',
+  nights INTEGER NOT NULL DEFAULT 1,
+  room_rate DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  room_total DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  service_total DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'Pending',
+  has_service_items BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Create function to check if user is admin
-CREATE OR REPLACE FUNCTION is_admin()
-RETURNS BOOLEAN AS $$
+-- Create invoice items table
+CREATE TABLE IF NOT EXISTS public.invoice_items (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  invoice_id BIGINT NOT NULL REFERENCES public.invoices(id) ON DELETE CASCADE,
+  service_id BIGINT,
+  item_name TEXT NOT NULL,
+  item_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  item_date TEXT,
+  item_type TEXT DEFAULT 'service',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add RLS policies for invoices
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Invoices are viewable by authenticated users"
+  ON public.invoices
+  FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Invoices are insertable by authenticated users"
+  ON public.invoices
+  FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Invoices are updatable by authenticated users"
+  ON public.invoices
+  FOR UPDATE
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Invoices are deletable by authenticated users"
+  ON public.invoices
+  FOR DELETE
+  USING (auth.role() = 'authenticated');
+
+-- Add RLS policies for invoice_items
+ALTER TABLE public.invoice_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Invoice items are viewable by authenticated users"
+  ON public.invoice_items
+  FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Invoice items are insertable by authenticated users"
+  ON public.invoice_items
+  FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Invoice items are updatable by authenticated users"
+  ON public.invoice_items
+  FOR UPDATE
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Invoice items are deletable by authenticated users"
+  ON public.invoice_items
+  FOR DELETE
+  USING (auth.role() = 'authenticated');
+
+-- Setup triggers to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_modified_column()
+RETURNS TRIGGER AS $$
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE user_profiles.user_id = auth.uid()
-    AND user_profiles.role = 'admin'
-  );
+   NEW.updated_at = NOW();
+   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_invoices_timestamp
+BEFORE UPDATE ON public.invoices
+FOR EACH ROW
+EXECUTE FUNCTION update_modified_column(); 

@@ -1,22 +1,17 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/static/(.*)", "destination": "/static/$1" },
-    { "source": "/favicon.ico", "destination": "/favicon.ico" },
-    { "source": "/asset-manifest.json", "destination": "/asset-manifest.json" },
-    { "source": "/manifest.json", "destination": "/manifest.json" },
-    { "source": "/precache-manifest.(.*)", "destination": "/precache-manifest.$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "builds": [
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/build",
+  "routes": [
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/favicon.ico", "dest": "/favicon.ico" },
+    { "src": "/asset-manifest.json", "dest": "/asset-manifest.json" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
+    { "src": "/precache-manifest.(.*)", "dest": "/precache-manifest.$1" },
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "build" }
-    }
-  ],
-  "env": {
-    "REACT_APP_SUPABASE_URL": "https://vdaxvoyowsjkyvjpperm.supabase.co",
-    "REACT_APP_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkYXh2b3lvd3Nqa3l2anBwZXJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIxNjQwMTEsImV4cCI6MjA1Nzc0MDAxMX0.Ex17J4uwp-rXIiQSPbi8iTDNyxk9oKtHZBW6roilkTk"
-  }
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 } 
