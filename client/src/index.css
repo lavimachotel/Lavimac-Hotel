@@ -1,0 +1,448 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+:root {
+  color-scheme: dark;
+  --primary-color: #00A3FF;
+  --accent-color: #FF6B00;
+  --gray-dark: #1F2937;
+  --gray-light: #F3F4F6;
+  --bg-primary: #000000;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --border-color: #4b5563;
+  --card-bg: #1f2937;
+  --sidebar-bg: #111827;
+  --input-bg: #374151;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+  }
+}
+
+@layer components {
+  .landing-page {
+    @apply min-h-screen;
+  }
+
+  .container {
+    @apply max-w-7xl mx-auto p-8 flex items-center gap-16 min-h-screen;
+  }
+
+  .content {
+    @apply flex-1;
+  }
+
+  .hotel-name {
+    @apply text-2xl mb-4;
+  }
+
+  .title {
+    @apply text-5xl font-bold mb-6;
+  }
+
+  .description {
+    @apply text-lg mb-8 max-w-lg;
+  }
+
+  .buttons {
+    @apply flex flex-wrap gap-4 mb-12;
+  }
+
+  .button {
+    @apply flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300;
+  }
+
+  .button i {
+    @apply mr-2;
+  }
+
+  .button-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .button-outline {
+    @apply bg-transparent border transition-all duration-300;
+  }
+
+  .dark-mode .button-outline {
+    @apply border-white text-white hover:bg-white/10;
+  }
+
+  .light-mode .button-outline {
+    @apply border-gray-800 text-gray-800 hover:bg-gray-800/10;
+  }
+
+  .stats {
+    @apply flex gap-6 flex-wrap;
+  }
+
+  .stat {
+    @apply flex items-center gap-3 p-4 rounded-lg;
+  }
+
+  .stat-icon {
+    @apply text-2xl;
+  }
+
+  .stat-text {
+    @apply flex flex-col;
+  }
+
+  .stat-label {
+    @apply text-sm;
+  }
+
+  .stat-value {
+    @apply text-lg font-bold;
+  }
+
+  .image-section {
+    @apply flex-1 relative;
+  }
+
+  .hotel-image {
+    @apply w-full h-[500px] object-cover rounded-3xl shadow-lg;
+  }
+
+  .badge {
+    @apply absolute bottom-4 right-4 px-4 py-2 rounded-lg font-medium;
+  }
+
+  .dashboard {
+    @apply bg-[color:var(--gray-light)] min-h-screen p-8;
+  }
+
+  .dashboard-header {
+    @apply flex justify-between items-center mb-8;
+  }
+
+  .dashboard-title {
+    @apply text-2xl font-bold text-[color:var(--gray-dark)];
+  }
+
+  .stats-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8;
+  }
+
+  .stat-card {
+    @apply bg-white p-6 rounded-xl shadow-sm;
+  }
+
+  .chart-container {
+    @apply w-full h-[300px] bg-white p-6 rounded-xl shadow-sm;
+  }
+}
+
+@layer utilities {
+  input[type="checkbox"] {
+    accent-color: var(--primary-color);
+  }
+}
+
+@media (max-width: 1024px) {
+  .container {
+    @apply flex-col p-4 gap-8;
+  }
+
+  .content, .image-section {
+    @apply w-full;
+  }
+
+  .buttons {
+    @apply flex-col;
+  }
+
+  .stats {
+    @apply flex-col gap-4;
+  }
+
+  .stats-grid {
+    @apply grid-cols-1;
+  }
+}
+
+/* Dark Mode (Default) */
+.dark-mode {
+  --bg-primary: #000000;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --accent-color: #3b82f6;
+  --border-color: #4b5563;
+  --card-bg: #1f2937;
+  --sidebar-bg: #111827;
+  --input-bg: #374151;
+}
+
+/* Light Mode */
+.light-mode {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-tertiary: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --accent-color: #2563eb;
+  --border-color: #d1d5db;
+  --card-bg: #ffffff;
+  --sidebar-bg: #f3f4f6;
+  --input-bg: #ffffff;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+}
+
+.dark-mode .theme-toggle {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.light-mode .theme-toggle {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+/* Apply CSS variables to elements */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Pulse animation for the End Shift button */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.pulse-button {
+  box-shadow: 0 0 0 rgba(220, 38, 38, 0.4);
+  animation: pulse 2s infinite;
+}
+
+/* Light mode specific overrides */
+.light-mode .landing-page,
+.light-mode .min-h-screen {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.light-mode input,
+.light-mode select,
+.light-mode textarea {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.light-mode .max-w-md {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+/* Enhanced Theme Transition */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body, 
+div, 
+section, 
+header, 
+footer, 
+input, 
+textarea, 
+select,
+button,
+table,
+th,
+td {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease, 
+              box-shadow 0.3s ease;
+}
+
+/* Fix for the light theme text color in inputs and selects */
+.light-mode input,
+.light-mode select,
+.light-mode textarea {
+  color: var(--text-primary);
+}
+
+/* Fix for light theme on StaffTimeAttendancePage */
+.light-mode .staff-time-attendance-page {
+  background-color: var(--bg-secondary);
+}
+
+/* Dark/Light mode specifics for data tables */
+.dark-mode th {
+  color: #93c5fd;
+}
+
+.light-mode th {
+  color: #3b82f6;
+}
+
+.dark-mode td {
+  color: #ffffff;
+}
+
+.light-mode td {
+  color: #1f2937;
+}
+
+/* Enhanced visibility for light theme borders */
+.light-mode .border-gray-700 {
+  border-color: #e5e7eb;
+}
+
+/* Calendar date input color fix for light theme */
+.light-mode input[type="date"] {
+  color-scheme: light;
+}
+
+.dark-mode input[type="date"] {
+  color-scheme: dark;
+}
+
+/* Add futuristic animations for Staff Access page */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.animation-delay-6000 {
+  animation-delay: 6s;
+}
+
+/* Styled scrollbar for the futuristic design */
+.styled-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.styled-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.styled-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.styled-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Blob animation for gradient elements */
+@keyframes blob {
+  0% {
+    transform: scale(1) translate(0px, 0px);
+  }
+  33% {
+    transform: scale(1.1) translate(30px, -30px);
+  }
+  66% {
+    transform: scale(0.9) translate(-20px, 20px);
+  }
+  100% {
+    transform: scale(1) translate(0px, 0px);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.animation-delay-6000 {
+  animation-delay: 6s;
+}
+
+/* Futuristic scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #2563eb, #7c3aed);
+}
+
+/* Grid pattern background */
+.bg-grid-pattern {
+  background-image: url('./assets/grid.svg');
+}

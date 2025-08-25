@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Browser Storage - Hotel Management</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .step {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .back-link a {
+            color: #007bff;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear Browser Storage</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> This will clear all stored data in your browser for this website, including login sessions and preferences. You may need to log in again.
+        </div>
+
+        <div class="success" id="successMessage">
+            <strong>✅ Success:</strong> Browser storage has been cleared successfully! You can now close this tab and refresh the hotel management application.
+        </div>
+
+        <div class="error" id="errorMessage">
+            <strong>❌ Error:</strong> <span id="errorText"></span>
+        </div>
+
+        <div class="step">
+            <h3>Why clear storage?</h3>
+            <p>If you're seeing database version errors or offline functionality issues, clearing browser storage will remove old cached data that may be causing conflicts.</p>
+        </div>
+
+        <button onclick="clearAllStorage()" id="clearButton">
+            Clear All Browser Storage
+        </button>
+
+        <div class="step">
+            <h3>What will be cleared:</h3>
+            <ul>
+                <li>IndexedDB databases (offline data)</li>
+                <li>Local Storage (user preferences)</li>
+                <li>Session Storage (temporary data)</li>
+                <li>Cache Storage (application cache)</li>
+            </ul>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Back to Hotel Management</a>
+        </div>
+    </div>
+
+    <script>
+        async function clearAllStorage() {
+            const clearButton = document.getElementById('clearButton');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+
+            clearButton.disabled = true;
+            clearButton.textContent = 'Clearing...';
+            
+            // Hide previous messages
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+
+            try {
+                console.log('Starting to clear browser storage...');
+                
+                // Clear IndexedDB
+                if ('indexedDB' in window) {
+                    try {
+                        // Get all databases and delete them
+                        if (indexedDB.databases) {
+                            const databases = await indexedDB.databases();
+                            for (const db of databases) {
+                                if (db.name) {
+                                    console.log(`Deleting IndexedDB: ${db.name}`);
+                                    indexedDB.deleteDatabase(db.name);
+                                }
+                            }
+                        }
+                        
+                        // Also try to delete common database names used by hotel management
+                        const commonDbNames = [
+                            'hotelManagementDB',
+                            'offlineDB', 
+                            'supabaseDB',
+                            'dexieDB',
+                            'HotelDB',
+                            'hotel_management'
+                        ];
+                        
+                        for (const dbName of commonDbNames) {
+                            try {
+                                indexedDB.deleteDatabase(dbName);
+                                console.log(`Attempted to delete IndexedDB: ${dbName}`);
+                            } catch (e) {
+                                console.log(`IndexedDB ${dbName} not found or already deleted`);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Error clearing IndexedDB:', e);
+                    }
+                }
+
+                // Clear Local Storage
+                if ('localStorage' in window) {
+                    const itemCount = localStorage.length;
+                    localStorage.clear();
+                    console.log(`Cleared ${itemCount} localStorage items`);
+                }
+
+                // Clear Session Storage
+                if ('sessionStorage' in window) {
+                    const itemCount = sessionStorage.length;
+                    sessionStorage.clear();
+                    console.log(`Cleared ${itemCount} sessionStorage items`);
+                }
+
+                // Clear Cache Storage
+                if ('caches' in window) {
+                    try {
+                        const cacheNames = await caches.keys();
+                        for (const cacheName of cacheNames) {
+                            await caches.delete(cacheName);
+                            console.log(`Deleted cache: ${cacheName}`);
+                        }
+                    } catch (e) {
+                        console.warn('Error clearing cache storage:', e);
+                    }
+                }
+
+                // Clear Web SQL (legacy)
+                if ('openDatabase' in window) {
+                    try {
+                        // This is deprecated but might still have old data
+                        console.log('Web SQL detected but not cleared (deprecated)');
+                    } catch (e) {
+                        console.log('No Web SQL to clear');
+                    }
+                }
+
+                console.log('✅ Successfully cleared all browser storage');
+                successMessage.style.display = 'block';
+                clearButton.textContent = 'Storage Cleared!';
+                
+                // Auto-redirect after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+
+            } catch (error) {
+                console.error('❌ Error clearing storage:', error);
+                errorText.textContent = error.message || 'Unknown error occurred';
+                errorMessage.style.display = 'block';
+                clearButton.disabled = false;
+                clearButton.textContent = 'Try Again';
+            }
+        }
+
+        // Auto-clear on load if URL parameter is present
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('auto') === 'true') {
+            setTimeout(clearAllStorage, 1000);
+        }
+    </script>
+</body>
+</html> 

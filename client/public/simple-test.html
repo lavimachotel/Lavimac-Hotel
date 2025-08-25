@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Database Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .room-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #fff;
+        }
+        .room-available { border-left: 4px solid #28a745; }
+        .room-occupied { border-left: 4px solid #dc3545; }
+        .room-maintenance { border-left: 4px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏨 Hotel Management - Offline Database Test</h1>
+        <p>Testing the offline SQLite database functionality</p>
+        
+        <div id="status" class="status info">
+            Initializing database...
+        </div>
+        
+        <div>
+            <button onclick="initializeDatabase()" id="initBtn">Initialize Database</button>
+            <button onclick="testRoomOperations()" id="roomBtn" disabled>Test Room Operations</button>
+            <button onclick="loadRooms()" id="loadBtn" disabled>Load Rooms</button>
+            <button onclick="clearLog()" id="clearBtn">Clear Log</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Database Status</h2>
+        <div id="dbStatus">Not initialized</div>
+    </div>
+
+    <div class="container">
+        <h2>🏠 Rooms</h2>
+        <div id="roomsContainer">No rooms loaded</div>
+    </div>
+
+    <div class="container">
+        <h2>📝 Activity Log</h2>
+        <div id="log" class="log">Starting test...\n</div>
+    </div>
+
+    <!-- Load SQL.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    
+    <script>
+        let SQL = null;
+        let db = null;
+        let isInitialized = false;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        async function initializeDatabase() {
+            try {
+                updateStatus('Loading SQL.js...', 'info');
+                log('🔄 Loading SQL.js from CDN...');
+                
+                // Initialize SQL.js
+                SQL = await initSqlJs({
+                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+                });
+                
+                log('✅ SQL.js loaded successfully');
+                
+                // Create database
+                db = new SQL.Database();
+                log('✅ SQLite database created');
+                
+                // Create tables
+                await createTables();
+                
+                // Insert default data
+                await insertDefaultData();
+                
+                isInitialized = true;
+                updateStatus('Database initialized successfully!', 'success');
+                
+                // Enable buttons
+                document.getElementById('roomBtn').disabled = false;
+                document.getElementById('loadBtn').disabled = false;
+                
+                // Update status
+                document.getElementById('dbStatus').innerHTML = `
+                    <div class="success">✅ Database initialized and ready</div>
+                    <div>Tables created: rooms, guests, reservations</div>
+                    <div>Default rooms: 9 hotel rooms loaded</div>
+                `;
+                
+                log('🎉 Database initialization complete!');
+                
+            } catch (error) {
+                log(`❌ Error initializing database: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function createTables() {
+            log('📋 Creating database tables...');
+            
+            // Create rooms table
+            const createRoomsTable = `
+                CREATE TABLE IF NOT EXISTS rooms (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    room_number TEXT UNIQUE NOT NULL,
+                    room_type TEXT NOT NULL,
+                    price_per_night DECIMAL(10,2) NOT NULL,
+                    status TEXT DEFAULT 'Available',
+                    amenities TEXT,
+                    max_occupancy INTEGER DEFAULT 2,
+                    description TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    needs_sync INTEGER DEFAULT 1
+                )
+            `;
+            
+            db.run(createRoomsTable);
+            log('✅ Rooms table created');
+            
+            // Create guests table
+            const createGuestsTable = `
+                CREATE TABLE IF NOT EXISTS guests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    email TEXT UNIQUE,
+                    phone TEXT,
+                    address TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    needs_sync INTEGER DEFAULT 1
+                )
+            `;
+            
+            db.run(createGuestsTable);
+            log('✅ Guests table created');
+            
+            // Create reservations table
+            const createReservationsTable = `
+                CREATE TABLE IF NOT EXISTS reservations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guest_id INTEGER NOT NULL,
+                    room_id INTEGER NOT NULL,
+                    check_in_date TEXT NOT NULL,
+                    check_out_date TEXT NOT NULL,
+                    total_amount DECIMAL(10,2),
+                    status TEXT DEFAULT 'Confirmed',
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    needs_sync INTEGER DEFAULT 1,
+                    FOREIGN KEY (guest_id) REFERENCES guests(id),
+                    FOREIGN KEY (room_id) REFERENCES rooms(id)
+                )
+            `;
+            
+            db.run(createReservationsTable);
+            log('✅ Reservations table created');
+        }
+
+        async function insertDefaultData() {
+            log('🏠 Inserting default room data...');
+            
+            const rooms = [
+                { room_number: 'Mint', room_type: 'Standard', price: 150.00, description: 'Cozy standard room with mint green decor' },
+                { room_number: 'Cinnamon', room_type: 'Standard', price: 150.00, description: 'Warm standard room with cinnamon brown tones' },
+                { room_number: 'Basil', room_type: 'Standard', price: 150.00, description: 'Fresh standard room with basil green accents' },
+                { room_number: 'Licorice', room_type: 'Deluxe', price: 200.00, description: 'Elegant deluxe room with dark sophisticated styling' },
+                { room_number: 'Marigold', room_type: 'Deluxe', price: 200.00, description: 'Bright deluxe room with golden marigold themes' },
+                { room_number: 'Lotus', room_type: 'Suite', price: 300.00, description: 'Luxurious suite with lotus-inspired zen design' },
+                { room_number: 'Jasmine', room_type: 'Suite', price: 300.00, description: 'Premium suite with jasmine white and gold accents' },
+                { room_number: 'Private', room_type: 'Private', price: 500.00, description: 'Exclusive private room with premium amenities' },
+                { room_number: 'Chamomile', room_type: 'Standard', price: 150.00, description: 'Relaxing standard room with chamomile yellow tones' }
+            ];
+            
+            for (const room of rooms) {
+                const amenities = JSON.stringify(['WiFi', 'TV', 'Air Conditioning', 'Mini Bar']);
+                const stmt = db.prepare(`
+                    INSERT INTO rooms (room_number, room_type, price_per_night, amenities, description, status)
+                    VALUES (?, ?, ?, ?, ?, 'Available')
+                `);
+                stmt.run([room.room_number, room.room_type, room.price, amenities, room.description]);
+                stmt.free();
+            }
+            
+            log(`✅ Inserted ${rooms.length} default rooms`);
+        }
+
+        async function testRoomOperations() {
+            if (!isInitialized) {
+                log('❌ Database not initialized');
+                return;
+            }
+            
+            try {
+                log('🧪 Testing room operations...');
+                
+                // Test 1: Count rooms
+                const countResult = db.exec("SELECT COUNT(*) as count FROM rooms");
+                const roomCount = countResult[0].values[0][0];
+                log(`📊 Total rooms in database: ${roomCount}`);
+                
+                // Test 2: Get available rooms
+                const availableResult = db.exec("SELECT COUNT(*) as count FROM rooms WHERE status = 'Available'");
+                const availableCount = availableResult[0].values[0][0];
+                log(`🟢 Available rooms: ${availableCount}`);
+                
+                // Test 3: Update room status
+                db.run("UPDATE rooms SET status = 'Occupied' WHERE room_number = 'Mint'");
+                log(`🔄 Updated Mint room status to Occupied`);
+                
+                // Test 4: Check updated status
+                const mintResult = db.exec("SELECT status FROM rooms WHERE room_number = 'Mint'");
+                const mintStatus = mintResult[0].values[0][0];
+                log(`📋 Mint room status: ${mintStatus}`);
+                
+                // Test 5: Reset status
+                db.run("UPDATE rooms SET status = 'Available' WHERE room_number = 'Mint'");
+                log(`🔄 Reset Mint room status to Available`);
+                
+                updateStatus('Room operations test completed successfully!', 'success');
+                log('✅ All room operations completed successfully');
+                
+            } catch (error) {
+                log(`❌ Error in room operations: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadRooms() {
+            if (!isInitialized) {
+                log('❌ Database not initialized');
+                return;
+            }
+            
+            try {
+                log('🏠 Loading rooms from database...');
+                
+                const result = db.exec("SELECT * FROM rooms ORDER BY room_number");
+                
+                if (result.length === 0) {
+                    document.getElementById('roomsContainer').innerHTML = '<div class="info">No rooms found</div>';
+                    return;
+                }
+                
+                const columns = result[0].columns;
+                const rows = result[0].values;
+                
+                let roomsHtml = '<div class="rooms-grid">';
+                
+                rows.forEach(row => {
+                    const room = {};
+                    columns.forEach((col, index) => {
+                        room[col] = row[index];
+                    });
+                    
+                    const statusClass = room.status === 'Available' ? 'room-available' : 
+                                       room.status === 'Occupied' ? 'room-occupied' : 'room-maintenance';
+                    
+                    roomsHtml += `
+                        <div class="room-card ${statusClass}">
+                            <h3>${room.room_number}</h3>
+                            <p><strong>Type:</strong> ${room.room_type}</p>
+                            <p><strong>Price:</strong> $${room.price_per_night}/night</p>
+                            <p><strong>Status:</strong> ${room.status}</p>
+                            <p><strong>Max Occupancy:</strong> ${room.max_occupancy}</p>
+                            <p><small>${room.description}</small></p>
+                        </div>
+                    `;
+                });
+                
+                roomsHtml += '</div>';
+                
+                document.getElementById('roomsContainer').innerHTML = roomsHtml;
+                log(`✅ Loaded ${rows.length} rooms successfully`);
+                
+            } catch (error) {
+                log(`❌ Error loading rooms: ${error.message}`);
+                document.getElementById('roomsContainer').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('🚀 Simple Database Test loaded');
+            log('Click "Initialize Database" to start testing');
+        });
+    </script>
+</body>
+</html> 

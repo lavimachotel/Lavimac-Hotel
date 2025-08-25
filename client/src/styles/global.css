@@ -1,0 +1,39 @@
+/* Dark mode form elements */
+.dark .form-input,
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="tel"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark textarea {
+  background-color: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+.dark .form-input:focus,
+.dark input:focus,
+.dark textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.dark .form-select,
+.dark select {
+  background-color: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+/* Dark mode dropdown options */
+.dark option {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+/* Dark mode placeholders */
+.dark .form-input::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #94a3b8;
+} 

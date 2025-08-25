@@ -1,0 +1,4 @@
+/*    /index.html   200
+/api/*  https://vdaxvoyowsjkyvjpperm.supabase.co/rest/v1/:splat  200
+/static/*  /static/:splat  200
+/assets/*  /assets/:splat  200 
