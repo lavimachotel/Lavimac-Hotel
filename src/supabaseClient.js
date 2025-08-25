@@ -2,15 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 
 // Get Supabase URL and anon key from environment variables
 // Provide fallback values to prevent runtime errors
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://vdaxvoyowsjkyvjpperm.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkYXh2b3lvd3Nqa3l2anBwZXJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIxNjQwMTEsImV4cCI6MjA1Nzc0MDAxMX0.Ex17J4uwp-rXIiQSPbi8iTDNyxk9oKtHZBW6roilkTk';
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://bviglsgfbwjhioeyhnin.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWdsc2dmYndqaGlvZXlobmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjgzOTEsImV4cCI6MjA3MTcwNDM5MX0.qge5aoUragEUNQbXSO1oheiW0Cog_JUBogrOKj0OoTA';
 
 // Log environment variable status for debugging
 console.log(`REACT_APP_SUPABASE_URL environment variable: ${process.env.REACT_APP_SUPABASE_URL ? 'defined' : 'undefined'}`);
 console.log(`REACT_APP_SUPABASE_ANON_KEY environment variable: ${process.env.REACT_APP_SUPABASE_ANON_KEY ? 'defined' : 'undefined'}`);
 
 // Validate environment variables
-if (!process.env.REACT_APP_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL === 'https://vdaxvoyowsjkyvjpperm.supabase.co') {
+if (!process.env.REACT_APP_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL === 'https://bviglsgfbwjhioeyhnin.supabase.co') {
   console.warn(
     'Using fallback Supabase URL. For production, set REACT_APP_SUPABASE_URL in your .env file with your actual Supabase URL.'
   );

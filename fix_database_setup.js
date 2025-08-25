@@ -4,8 +4,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Get Supabase URL and anon key from environment variables or use fallbacks
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://vdaxvoyowsjkyvjpperm.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkYXh2b3lvd3Nqa3l2anBwZXJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIxNjQwMTEsImV4cCI6MjA1Nzc0MDAxMX0.Ex17J4uwp-rXIiQSPbi8iTDNyxk9oKtHZBW6roilkTk';
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://bviglsgfbwjhioeyhnin.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWdsc2dmYndqaGlvZXlobmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjgzOTEsImV4cCI6MjA3MTcwNDM5MX0.qge5aoUragEUNQbXSO1oheiW0Cog_JUBogrOKj0OoTA';
 
 // Create a Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
