@@ -109,7 +109,7 @@ const OfflineSidebar = ({ activeLink }) => {
               <h2 className="sidebar-title">
                 <span className="title-glow">
                   <FontAwesomeIcon icon={faPlugCircleXmark} className="mr-2 text-green-500" />
-                  The Green Royal
+                  Lavimac Royal
                 </span>
                 <span className="text-xs text-green-400 block mt-1">Offline Mode</span>
               </h2>

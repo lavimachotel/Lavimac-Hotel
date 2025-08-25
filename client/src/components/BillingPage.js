@@ -416,7 +416,7 @@ const BillingPage = () => {
       <body>
         <div class="receipt">
           <div class="header">
-            <div class="hotel-name">The Green Royal Hotel</div>
+            <div class="hotel-name">Lavimac Royal Hotel</div>
             <div class="invoice-title">INVOICE / RECEIPT</div>
             <div class="invoice-number">Invoice #: INV-${String(invoice.id).padStart(5, '0')}</div>
           </div>

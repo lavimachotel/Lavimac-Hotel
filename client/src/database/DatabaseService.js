@@ -111,7 +111,7 @@ class DatabaseService {
       }
 
       const defaultSettings = [
-        { key: 'hotel_name', value: 'The Green Royal Hotel', type: 'string' },
+        { key: 'hotel_name', value: 'Lavimac Royal Hotel', type: 'string' },
         { key: 'currency', value: 'GHS', type: 'string' },
         { key: 'timezone', value: 'GMT', type: 'string' },
         { key: 'auto_sync_interval', value: '300', type: 'number' },

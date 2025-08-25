@@ -15,7 +15,7 @@ const OfflineHome = () => {
             <i className="fas fa-plug-circle-xmark text-white text-3xl"></i>
           </div>
           <h1 className={`text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            The Green Royal Hotel
+            Lavimac Royal Hotel
           </h1>
           <p className={`text-xl mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             Offline Management System

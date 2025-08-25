@@ -107,7 +107,7 @@ const Sidebar = ({ activeLink }) => {
             </button>
             {sidebarOpen && (
               <h2 className="sidebar-title">
-                <span className="title-glow">The Green Royal</span>
+                <span className="title-glow">Lavimac Royal</span>
               </h2>
             )}
           </div>

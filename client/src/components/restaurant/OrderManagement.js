@@ -262,7 +262,7 @@ const OrderManagement = () => {
           </style>
         </head>
         <body>
-          <div class="hotel-name">The Green Royal Hotel</div>
+          <div class="hotel-name">Lavimac Royal Hotel</div>
           <h1>Order Receipt</h1>
           <div class="order-details">
             <div><strong>Order ID:</strong> ${order.id}</div>

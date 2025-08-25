@@ -24,7 +24,7 @@ const Home = () => {
     return (
         <div className="flex items-center justify-center min-h-screen p-5 bg-gray-100 min-w-screen dark:bg-gray-900 dark:text-white">
             <div className="flex flex-col items-center">
-                <h1 className="text-3xl font-bold mb-4">Welcome to The Green Royal Hotel</h1>
+                <h1 className="text-3xl font-bold mb-4">Welcome to Lavimac Royal Hotel</h1>
                 <div className="flex space-x-2 animate-pulse mt-4">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>

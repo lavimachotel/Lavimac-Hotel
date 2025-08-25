@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.send('Welcome to The Green Royal Hotel Management System');
+    res.send('Welcome to Lavimac Royal Hotel Management System');
 });
 
 app.listen(PORT, () => {

@@ -1502,7 +1502,7 @@ const Reports = () => {
       doc.setFont(styles.title.font, 'bold');
       doc.setFontSize(styles.title.fontSize);
       doc.setTextColor(...styles.title.textColor);
-      doc.text('The Green Royal Hotel - Summary Report', 15, 30);
+      doc.text('Lavimac Royal Hotel - Summary Report', 15, 30);
       console.log("Added title to PDF");
       
       // Add date range
@@ -1937,8 +1937,8 @@ const Reports = () => {
   const handleEmailReport = () => {
     // Use the current reportData from the component state or a fallback
     const currentReportData = reportData || {};
-    const subject = encodeURIComponent(`The Green Royal Hotel Report: ${currentReportData?.name || 'Report'}`);
-    const body = encodeURIComponent(`Please find attached the ${currentReportData?.name || 'report'} from The Green Royal Hotel.\n\nThank you for your business.`);
+    const subject = encodeURIComponent(`Lavimac Royal Hotel Report: ${currentReportData?.name || 'Report'}`);
+    const body = encodeURIComponent(`Please find attached the ${currentReportData?.name || 'report'} from Lavimac Royal Hotel.\n\nThank you for your business.`);
     window.open(`mailto:?subject=${subject}&body=${body}`);
     toast.success('Email client opened');
   };

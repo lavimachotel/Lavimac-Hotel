@@ -36,7 +36,7 @@ function LandingPage() {
     <div className="landing-page dark:bg-black light:bg-gray-100 relative">
       <div className="container">
         <div className="content">
-          <h1 className="hotel-name dark:text-primary light:text-primary">The Green Royal Hotel</h1>
+          <h1 className="hotel-name dark:text-primary light:text-primary">Lavimac Royal Hotel</h1>
           <h2 className="title dark:text-white light:text-gray-900">
             Powered by<br />
             Ecstasy Geospatial Services
