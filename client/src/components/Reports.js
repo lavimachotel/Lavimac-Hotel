@@ -1535,8 +1535,8 @@ const Reports = () => {
     doc.text('LOCATION', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(255, 255, 255);
-    doc.text('Oduom Anwomaso', boxX, metaY + 5);
-    doc.text('Kumasi, Ghana', boxX, metaY + 9);
+    doc.text(HOTEL_CONFIG.address, boxX, metaY + 5);
+    doc.text('Ghana', boxX, metaY + 9);
     
     metaY += 17;
     doc.setFont('helvetica', 'bold');
@@ -1751,8 +1751,8 @@ const Reports = () => {
     doc.text('LOCATION', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(255, 255, 255);
-    doc.text('Oduom Anwomaso', boxX, metaY + 5);
-    doc.text('Kumasi, Ghana', boxX, metaY + 9);
+    doc.text(HOTEL_CONFIG.address, boxX, metaY + 5);
+    doc.text('Ghana', boxX, metaY + 9);
     
     metaY += 17;
     doc.setFont('helvetica', 'bold');
