@@ -12,13 +12,14 @@ import RoomContextMenu from './RoomContextMenu';
 const RoomsPage = () => {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
-  const { rooms, loading, error, updateRoomStatus, checkInGuest, checkOutGuest, createReservation } = useRoomReservation();
+  const { rooms, loading, error, updateRoomStatus, checkInGuest, checkOutGuest, createReservation, refreshData } = useRoomReservation();
   const { modals, openModal, closeModal, registerModal } = useModals();
   
   const [hoveredRoom, setHoveredRoom] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activeBlockFilter, setActiveBlockFilter] = useState('all');
   
   // Context menu state
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
@@ -32,12 +33,27 @@ const RoomsPage = () => {
     }
   }, [modals, registerModal]);
 
+  // Force refresh room data when component mounts (only once)
+  useEffect(() => {
+    if (!rooms || rooms.length === 0) {
+      console.log('RoomsPage: No rooms found, refreshing data...');
+      refreshData(true);
+    }
+  }, []); // Empty dependency array to run only once
+
   // Room statistics with defensive coding
   const totalRooms = Array.isArray(rooms) ? rooms.length : 0;
   const availableRooms = Array.isArray(rooms) ? rooms.filter(room => room && room.status === 'Available').length : 0;
   const occupiedRooms = Array.isArray(rooms) ? rooms.filter(room => room && room.status === 'Occupied').length : 0;
   const reservedRooms = Array.isArray(rooms) ? rooms.filter(room => room && room.status === 'Reserved').length : 0;
   const maintenanceRooms = Array.isArray(rooms) ? rooms.filter(room => room && room.status === 'Maintenance').length : 0;
+
+  // Get unique blocks for filtering
+  const availableBlocks = React.useMemo(() => {
+    if (!rooms || rooms.length === 0) return [];
+    const blocks = [...new Set(rooms.map(room => room.block || 'Main Block'))];
+    return blocks.sort();
+  }, [rooms]);
 
   // Filter rooms based on active filter
   const filteredRooms = React.useMemo(() => {
@@ -47,19 +63,33 @@ const RoomsPage = () => {
     
     let filtered = [...rooms];
     
-    // Filter by room IDs from 101 to 109 which are our 9 rooms
-    filtered = filtered.filter(room => room && room.id >= 101 && room.id <= 109);
-    
-    // Sort rooms by ID
-    filtered = filtered.sort((a, b) => a.id - b.id);
-    
     // Apply status filter
     if (activeFilter !== 'all') {
       filtered = filtered.filter(room => room.status.toLowerCase() === activeFilter);
     }
     
+    // Apply block filter
+    if (activeBlockFilter !== 'all') {
+      filtered = filtered.filter(room => (room.block || 'Main Block') === activeBlockFilter);
+    }
+    
+    // Sort rooms by block first, then by room number
+    filtered = filtered.sort((a, b) => {
+      const blockA = a.block || 'Main Block';
+      const blockB = b.block || 'Main Block';
+      
+      if (blockA !== blockB) {
+        return blockA.localeCompare(blockB);
+      }
+      
+      // Extract numeric part from room number for proper sorting
+      const numA = parseInt(a.room_number.toString().replace(/\D/g, ''));
+      const numB = parseInt(b.room_number.toString().replace(/\D/g, ''));
+      return numA - numB;
+    });
+    
     return filtered;
-  }, [rooms, activeFilter]);
+  }, [rooms, activeFilter, activeBlockFilter]);
 
   // Function to handle check-in
   const handleCheckIn = (roomId) => {
@@ -177,8 +207,10 @@ const RoomsPage = () => {
       <Card className="mb-6 overflow-hidden relative">
         <div className={`absolute top-0 left-0 w-full h-1 ${isDarkMode ? 'bg-gradient-to-r from-gray-700 to-gray-600' : 'bg-gradient-to-r from-gray-300 to-gray-200'}`}></div>
         <div className="p-1">
-          <p className={`text-xs uppercase tracking-wider mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Filter rooms by status</p>
-          <div className="flex flex-wrap gap-3">
+          {/* Status Filters */}
+          <div className="mb-4">
+            <p className={`text-xs uppercase tracking-wider mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Filter by Status</p>
+            <div className="flex flex-wrap gap-3">
           <Button
             variant={activeFilter === 'all' ? 'primary' : 'secondary'}
             onClick={() => setActiveFilter('all')}
@@ -231,7 +263,39 @@ const RoomsPage = () => {
             Maintenance
               </span>
           </Button>
+            </div>
           </div>
+
+          {/* Block Filters */}
+          {availableBlocks.length > 1 && (
+            <div>
+              <p className={`text-xs uppercase tracking-wider mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Filter by Block/Building</p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant={activeBlockFilter === 'all' ? 'primary' : 'secondary'}
+                  onClick={() => setActiveBlockFilter('all')}
+                  size="sm"
+                  className={`${activeBlockFilter === 'all' ? '' : 'opacity-80'}`}
+                >
+                  All Blocks
+                </Button>
+                {availableBlocks.map((block) => (
+                  <Button
+                    key={block}
+                    variant={activeBlockFilter === block ? 'info' : 'secondary'}
+                    onClick={() => setActiveBlockFilter(block)}
+                    size="sm"
+                    className={`${activeBlockFilter === block ? '' : 'opacity-80'}`}
+                  >
+                    <span className="flex items-center">
+                      <span className="mr-2">🏢</span>
+                      {block}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -258,12 +322,8 @@ const RoomsPage = () => {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
               {filteredRooms.map((room) => {
-                // Calculate price display with Ghana Cedis based on room type
-                const priceDisplay = 
-                  room.type === 'Standard' ? 'GH₵400' :
-                  room.type === 'Superior' ? 'GH₵700' :
-                  room.type === 'Executive' ? 'GH₵1,250' :
-                  `GH₵${room.price || 0}`;
+                // Display actual room price from database
+                const priceDisplay = `GH₵${room.price || 0}`;
                 
                 // Determine room status UI class
                 const getRoomStatusClass = (status) => {

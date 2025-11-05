@@ -22,7 +22,8 @@ const RoomCard = ({ room }) => {
     status = 'Unknown',
     price = 0,
     capacity = 0,
-    amenities = []
+    amenities = [],
+    block = 'Main Block'
   } = room;
 
   // Determine card status class
@@ -46,10 +47,28 @@ const RoomCard = ({ room }) => {
     return `GH₵ ${Number(amount).toLocaleString()}`;
   };
 
+  // Format room number with R- prefix and zero padding
+  const formatRoomNumber = (roomNum) => {
+    if (!roomNum) return 'Unknown';
+    const num = roomNum.toString().padStart(3, '0');
+    return `R-${num}`;
+  };
+
   return (
     <div className={`room-card ${getStatusClass()}`}>
       <div className="card-header">
-        <h3>{room_number}</h3>
+        <div>
+          <h3>{formatRoomNumber(room_number)}</h3>
+          <span className="room-block" style={{ 
+            fontSize: '12px', 
+            color: '#6b7280', 
+            fontWeight: '500',
+            display: 'block',
+            marginTop: '4px'
+          }}>
+            📍 {block}
+          </span>
+        </div>
         <span className="room-status">{status}</span>
       </div>
       

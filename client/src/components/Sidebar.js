@@ -107,7 +107,14 @@ const Sidebar = ({ activeLink }) => {
             </button>
             {sidebarOpen && (
               <h2 className="sidebar-title">
-                <span className="title-glow">Lavimac Royal</span>
+                <div className="title-with-logo">
+                  <img 
+                    src="/logo.jpg" 
+                    alt="Nhyiraba Hotel Logo" 
+                    className="hotel-logo"
+                  />
+                  <span className="title-glow">Nhyiraba Hotel</span>
+                </div>
               </h2>
             )}
           </div>

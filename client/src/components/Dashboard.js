@@ -96,7 +96,7 @@ const RoomCheckInModal = ({ isOpen, onClose, onCheckIn, roomId }) => {
 const Dashboard = () => {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
-  const { getRooms, revenue, updateRoomStatus } = useRoomReservation();
+  const { rooms: contextRooms, loading: roomsLoading, error: roomsError, getRooms, revenue, updateRoomStatus, refreshData } = useRoomReservation();
   const { guestList } = useGuests();
   const navigate = useNavigate();
   const dashboardRef = useRef(null);
@@ -135,13 +135,14 @@ const Dashboard = () => {
   });
   const [restaurantDateRange, setRestaurantDateRange] = useState('all'); // 'today', 'week', 'month', 'all'
 
-  // Stats calculation with defensive coding
-  const totalRooms = rooms?.length || 0;
-  const availableRooms = rooms?.filter(room => room.status === 'Available').length || 0;
-  const occupiedRooms = rooms?.filter(room => room.status === 'Occupied').length || 0;
-  const reservedRooms = rooms?.filter(room => room.status === 'Reserved').length || 0;
-  const maintenanceRooms = rooms?.filter(room => room.status === 'Maintenance').length || 0;
-  const cleaningRooms = rooms?.filter(room => room.status === 'Cleaning').length || 0;
+  // Stats calculation with defensive coding - use contextRooms as primary source
+  const activeRooms = contextRooms && contextRooms.length > 0 ? contextRooms : rooms;
+  const totalRooms = activeRooms?.length || 0;
+  const availableRooms = activeRooms?.filter(room => room.status === 'Available').length || 0;
+  const occupiedRooms = activeRooms?.filter(room => room.status === 'Occupied').length || 0;
+  const reservedRooms = activeRooms?.filter(room => room.status === 'Reserved').length || 0;
+  const maintenanceRooms = activeRooms?.filter(room => room.status === 'Maintenance').length || 0;
+  const cleaningRooms = activeRooms?.filter(room => room.status === 'Cleaning').length || 0;
   
   // Calculate occupancy rate including both occupied and reserved rooms
   const occupancyRate = totalRooms > 0 
@@ -150,8 +151,8 @@ const Dashboard = () => {
 
   // Calculate total guests (occupied + reserved rooms) with defensive coding
   const calculateTotalGuests = () => {
-    if (Array.isArray(rooms)) {
-      const totalGuests = rooms.filter(room => room && room.guest).length;
+    if (Array.isArray(activeRooms)) {
+      const totalGuests = activeRooms.filter(room => room && room.guest).length;
       setTotalGuests(totalGuests);
     }
   };
@@ -234,15 +235,12 @@ const Dashboard = () => {
     };
   }, []);
 
-  // Fetch rooms and set up event listeners
-  const fetchRoomData = async () => {
-    console.log("Fetching room data for dashboard");
-    try {
-      setLoading(true);
-      const data = await getRooms();
-      
+  // Update rooms when context rooms change
+  useEffect(() => {
+    if (contextRooms && Array.isArray(contextRooms)) {
+      console.log(`Dashboard received ${contextRooms.length} rooms from context`);
       // Process the rooms to ensure rooms with guests are marked as Occupied
-      const processedData = data.map(room => {
+      const processedData = contextRooms.map(room => {
         // If a room has a guest, it should always be marked as Occupied regardless of database status
         if (room.guest) {
           return { ...room, status: 'Occupied' };
@@ -251,6 +249,16 @@ const Dashboard = () => {
       });
       
       setRooms(processedData);
+    }
+  }, [contextRooms]);
+
+  // Fetch rooms and set up event listeners
+  const fetchRoomData = async () => {
+    console.log("Fetching room data for dashboard");
+    try {
+      setLoading(true);
+      // Use refreshData from context instead of local getRooms
+      await refreshData(true);
     } catch (error) {
       console.error('Error fetching rooms:', error);
     } finally {
@@ -1171,7 +1179,7 @@ const Dashboard = () => {
     if (taskChartRef.current) {
       const chart = echarts.init(taskChartRef.current);
       
-      // Sample data for the chart
+      // Chart data from actual tasks
       const taskData = tasks.map(task => {
         return {
           name: task.room,
@@ -1982,120 +1990,187 @@ const Dashboard = () => {
             </div>
 
             {/* Main Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* First Column */}
-              <div className="space-y-6">
-                {/* Room Overview */}
-                <div className={`${isDarkMode ? 'bg-slate-800/80' : 'bg-white/80'} backdrop-blur-md rounded-xl p-6 shadow-lg border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
-                  <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
-                    <i className={`fas fa-building mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
-                    Room Overview
-                  </h3>
-                  
-                  <div className={`mt-3 text-sm text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Click on a room for quick actions • Right-click for all options
-                  </div>
+            <div className="space-y-6">
+              {/* Room Overview - Full Width */}
+              <div className={`${isDarkMode ? 'bg-slate-800/80' : 'bg-white/80'} backdrop-blur-md rounded-xl p-6 shadow-lg border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
+                  <i className={`fas fa-building mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                  Room Overview
+                </h3>
+                
+                <div className={`mt-3 text-sm text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Click on a room for quick actions • Right-click for all options
+                </div>
 
                   {/* Room Grid - 3 per row with number and price */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                    {rooms.map((room) => {
+                  {roomsLoading ? (
+                    <div className="flex justify-center items-center p-8">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-2">Loading rooms...</span>
+                    </div>
+                  ) : roomsError ? (
+                    <div className="text-center p-8 text-red-500">
+                      <p>Error loading rooms: {roomsError}</p>
+                      <button 
+                        onClick={() => refreshData(true)}
+                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : !activeRooms || activeRooms.length === 0 ? (
+                    <div className="text-center p-8">
+                      <p className="text-gray-500">No rooms available</p>
+                      <button 
+                        onClick={() => refreshData(true)}
+                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Main Block Rooms */}
+                      {activeRooms.filter(room => room.block === 'Main Block' || !room.block).length > 0 && (
+                        <div className="mb-8">
+                          <div className={`flex items-center mb-4 pb-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                            <i className={`fas fa-building mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                            <h4 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                              Main Block
+                            </h4>
+                            <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              ({activeRooms.filter(room => room.block === 'Main Block' || !room.block).length} rooms)
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+                            {activeRooms
+                              .filter(room => room.block === 'Main Block' || !room.block)
+                              .map((room) => {
                       // Calculate price display with Ghana Cedis based on room type
-                      const priceDisplay = 
-                        room.type === 'Standard' ? 'GH₵400' :
-                        room.type === 'Superior' ? 'GH₵700' :
-                        room.type === 'Executive' ? 'GH₵1,250' :
-                        `GH₵${room.price || 0}`;
+                              const priceDisplay = `GH₵${room.price || 0}`;
                         
                       return (
                         <div
                           key={room.id}
-                          className={`relative p-4 rounded-xl cursor-pointer hover:shadow-lg transition-all duration-300 border h-28 flex flex-col justify-between ${getRoomStatusClass(room.status, isDarkMode)}`}
+                          className={`relative p-3 rounded-lg cursor-pointer hover:shadow-md transition-all duration-300 border h-20 flex flex-col justify-between ${getRoomStatusClass(room.status, isDarkMode)}`}
                           onClick={(e) => handleRoomClick(e, room)}
                           onMouseEnter={(e) => handleRoomMouseEnter(e, room)}
                           onMouseLeave={handleRoomMouseLeave}
                           onContextMenu={(e) => handleRoomContextMenu(e, room)}
                         >
-                          <div className={`absolute ${getRoomStatusIndicator(room.status, isDarkMode)} w-3 h-3 rounded-full bottom-3 right-3`}></div>
+                          <div className={`absolute ${getRoomStatusIndicator(room.status, isDarkMode)} w-2 h-2 rounded-full bottom-2 right-2`}></div>
                           
                           <div className="flex justify-between items-start w-full">
                             <div className="flex flex-col items-start">
-                              <span className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                              <span className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                 {room.name || `Room ${room.room_number}`}
                               </span>
-                              <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                 {room.type}
                               </span>
                             </div>
-                            <div className={`font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                            <div className={`text-sm font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                               {priceDisplay}
                             </div>
                           </div>
                           
                           {room.guest && (
-                            <div className={`flex items-center mt-2 px-2 py-1 rounded-md ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
-                              <i className={`fas fa-user text-xs mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
-                              <span className="text-xs truncate max-w-full">
+                            <div className={`flex items-center mt-1 px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
+                              <i className={`fas fa-user text-[10px] mr-1 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                              <span className="text-[10px] truncate max-w-full">
                                 {room.guest}
                               </span>
                             </div>
                           )}
                           
                           {!room.guest && room.status !== 'Available' && (
-                            <div className={`flex items-center mt-2 px-2 py-1 rounded-md ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
-                              <i className={`fas fa-${room.status === 'Reserved' ? 'calendar-check' : 'tools'} text-xs mr-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}></i>
-                              <span className="text-xs truncate max-w-full">
+                            <div className={`flex items-center mt-1 px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
+                              <i className={`fas fa-${room.status === 'Reserved' ? 'calendar-check' : 'tools'} text-[10px] mr-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}></i>
+                              <span className="text-[10px] truncate max-w-full">
                                 {room.status}
                               </span>
                             </div>
                           )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Occupancy Rate Chart */}
-                  <div className={`${isDarkMode ? 'bg-slate-900/80' : 'bg-gray-50/80'} rounded-xl p-6 shadow-sm mt-6 border ${isDarkMode ? 'border-slate-800' : 'border-gray-200'}`}>
-                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
-                      <i className={`fas fa-chart-pie mr-2 ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}></i>
-                      Occupancy Rate
-                    </h3>
-                    <div ref={occRateChartRef} className="w-full h-[300px]"></div>
-                  </div>
-
-                  {/* Today's Check-ins */}
-                  <div className={`${isDarkMode ? 'bg-slate-900/80' : 'bg-gray-50/80'} rounded-xl p-6 shadow-sm mt-6 border ${isDarkMode ? 'border-slate-800' : 'border-gray-200'}`}>
-                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
-                      <i className={`fas fa-sign-in-alt mr-2 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`}></i>
-                      Today's Check-ins
-                    </h3>
-                    {todaysCheckIns.length > 0 ? (
-                      <div className="space-y-3">
-                        {todaysCheckIns.map((checkIn) => (
-                          <div key={checkIn.id} 
-                            className={`${isDarkMode ? 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50' : 'bg-white/90 border-gray-200 hover:border-blue-400/60'} rounded-lg p-3 flex justify-between items-center border transition-all duration-300`}
-                            onClick={() => handleCheckInClick(checkIn)}
-                          >
-                            <div>
-                              <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{checkIn.guest_name}</div>
-                              <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{checkIn.room_number} · {formatDate(checkIn.check_in_date)}</div>
-                            </div>
-                            <button className={`${isDarkMode ? 'bg-green-600/30 hover:bg-green-600/50 text-green-400' : 'bg-green-500/20 hover:bg-green-500/30 text-green-600'} p-2 rounded-lg transition-colors duration-300`}>
-                              <i className="fas fa-check"></i>
-                            </button>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className={`text-center py-6 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                        <i className="fas fa-calendar-check text-4xl mb-2 opacity-30"></i>
-                        <p>No check-ins scheduled for today</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                        );
+                        })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Aquarian Block Rooms */}
+                      {activeRooms.filter(room => room.block === 'Aquarian Block').length > 0 && (
+                        <div className="mb-6">
+                          <div className={`flex items-center mb-4 pb-2 border-b ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                            <i className={`fas fa-water mr-2 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-500'}`}></i>
+                            <h4 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                              Aquarian Block
+                            </h4>
+                            <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              ({activeRooms.filter(room => room.block === 'Aquarian Block').length} rooms)
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+                            {activeRooms
+                              .filter(room => room.block === 'Aquarian Block')
+                              .map((room) => {
+                              const priceDisplay = `GH₵${room.price || 0}`;
+                              
+                              return (
+                                <div
+                                  key={room.id}
+                                  className={`relative p-3 rounded-lg cursor-pointer hover:shadow-md transition-all duration-300 border h-20 flex flex-col justify-between ${getRoomStatusClass(room.status, isDarkMode)}`}
+                                  onClick={(e) => handleRoomClick(e, room)}
+                                  onMouseEnter={(e) => handleRoomMouseEnter(e, room)}
+                                  onMouseLeave={handleRoomMouseLeave}
+                                  onContextMenu={(e) => handleRoomContextMenu(e, room)}
+                                >
+                                  <div className={`absolute ${getRoomStatusIndicator(room.status, isDarkMode)} w-2 h-2 rounded-full bottom-2 right-2`}></div>
+                                  
+                                  <div className="flex justify-between items-start w-full">
+                                    <div className="flex flex-col items-start">
+                                      <span className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                                        {room.name || `Room ${room.room_number}`}
+                                      </span>
+                                      <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {room.type}
+                                      </span>
+                                    </div>
+                                    <div className={`text-sm font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                      {priceDisplay}
+                                    </div>
+                                  </div>
+                                  
+                                  {room.guest && (
+                                    <div className={`flex items-center mt-1 px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
+                                      <i className={`fas fa-user text-[10px] mr-1 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                                      <span className="text-[10px] truncate max-w-full">
+                                        {room.guest}
+                                      </span>
+                                    </div>
+                                  )}
+                                  
+                                  {!room.guest && room.status !== 'Available' && (
+                                    <div className={`flex items-center mt-1 px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
+                                      <i className={`fas fa-${room.status === 'Reserved' ? 'calendar-check' : 'tools'} text-[10px] mr-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}></i>
+                                      <span className="text-[10px] truncate max-w-full">
+                                        {room.status}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
               </div>
 
-              <div className="space-y-6">
+              {/* Restaurant Dashboard and Revenue Analytics - Side by Side Below Room Overview */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Restaurant Dashboard */}
                 <div className={`${isDarkMode ? 'bg-slate-800/80' : 'bg-white/80'} backdrop-blur-md rounded-xl p-6 shadow-lg border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
                   <div className="flex justify-between items-center mb-4">
@@ -2237,6 +2312,49 @@ const Dashboard = () => {
                     Revenue Analytics
                   </h3>
                   <div ref={revenueChartRef} className="w-full h-[300px]"></div>
+                </div>
+              </div>
+
+              {/* Additional Cards - Full Width Below */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Occupancy Rate Chart */}
+                <div className={`${isDarkMode ? 'bg-slate-800/80' : 'bg-white/80'} backdrop-blur-md rounded-xl p-6 shadow-lg border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                  <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
+                    <i className={`fas fa-chart-pie mr-2 ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}></i>
+                    Occupancy Rate
+                  </h3>
+                  <div ref={occRateChartRef} className="w-full h-[300px]"></div>
+                </div>
+
+                {/* Today's Check-ins */}
+                <div className={`${isDarkMode ? 'bg-slate-800/80' : 'bg-white/80'} backdrop-blur-md rounded-xl p-6 shadow-lg border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                  <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
+                    <i className={`fas fa-sign-in-alt mr-2 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`}></i>
+                    Today's Check-ins
+                  </h3>
+                  {todaysCheckIns.length > 0 ? (
+                    <div className="space-y-3">
+                      {todaysCheckIns.map((checkIn) => (
+                        <div key={checkIn.id} 
+                          className={`${isDarkMode ? 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50' : 'bg-white/90 border-gray-200 hover:border-blue-400/60'} rounded-lg p-3 flex justify-between items-center border transition-all duration-300`}
+                          onClick={() => handleCheckInClick(checkIn)}
+                        >
+                          <div>
+                            <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{checkIn.guest_name}</div>
+                            <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{checkIn.room_number} · {formatDate(checkIn.check_in_date)}</div>
+                          </div>
+                          <button className={`${isDarkMode ? 'bg-green-600/30 hover:bg-green-600/50 text-green-400' : 'bg-green-500/20 hover:bg-green-500/30 text-green-600'} p-2 rounded-lg transition-colors duration-300`}>
+                            <i className="fas fa-check"></i>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={`text-center py-6 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                      <i className="fas fa-calendar-check text-4xl mb-2 opacity-30"></i>
+                      <p>No check-ins scheduled for today</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Housekeeping Tasks */}
