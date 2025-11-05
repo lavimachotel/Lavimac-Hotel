@@ -1527,27 +1527,27 @@ const Reports = () => {
     doc.text('DATE', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(255, 255, 255);
-    doc.text(format(new Date(), 'MMMM dd, yyyy'), boxX, metaY + 5);
+    doc.text(format(new Date(), 'MMMM dd, yyyy'), boxX, metaY + 4);
     
-    metaY += 13;
+    metaY += 10;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(gold[0], gold[1], gold[2]);
     doc.text('LOCATION', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(255, 255, 255);
-    doc.text(HOTEL_CONFIG.address, boxX, metaY + 5);
-    doc.text('Ghana', boxX, metaY + 9);
+    doc.text(HOTEL_CONFIG.address, boxX, metaY + 4);
+    doc.text('Ghana', boxX, metaY + 7);
     
-    metaY += 17;
+    metaY += 13;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(gold[0], gold[1], gold[2]);
     doc.text('CONTACT', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(255, 255, 255);
-    doc.text(HOTEL_CONFIG.email, boxX, metaY + 5);
-    doc.text(HOTEL_CONFIG.phone, boxX, metaY + 9);
-    doc.text(HOTEL_CONFIG.website, boxX, metaY + 13);
+    doc.text(HOTEL_CONFIG.email, boxX, metaY + 4);
+    doc.text(HOTEL_CONFIG.phone, boxX, metaY + 7);
+    doc.text(HOTEL_CONFIG.website, boxX, metaY + 10);
     
     // Footer
     doc.setFont('helvetica', 'normal');
@@ -1743,27 +1743,27 @@ const Reports = () => {
     doc.text('DATE', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(255, 255, 255);
-    doc.text(format(new Date(), 'MMMM dd, yyyy'), boxX, metaY + 5);
+    doc.text(format(new Date(), 'MMMM dd, yyyy'), boxX, metaY + 4);
     
-    metaY += 13;
+    metaY += 10;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(gold[0], gold[1], gold[2]);
     doc.text('LOCATION', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(255, 255, 255);
-    doc.text(HOTEL_CONFIG.address, boxX, metaY + 5);
-    doc.text('Ghana', boxX, metaY + 9);
+    doc.text(HOTEL_CONFIG.address, boxX, metaY + 4);
+    doc.text('Ghana', boxX, metaY + 7);
     
-    metaY += 17;
+    metaY += 13;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(gold[0], gold[1], gold[2]);
     doc.text('CONTACT', boxX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(255, 255, 255);
-    doc.text(HOTEL_CONFIG.email, boxX, metaY + 5);
-    doc.text(HOTEL_CONFIG.phone, boxX, metaY + 9);
-    doc.text(HOTEL_CONFIG.website, boxX, metaY + 13);
+    doc.text(HOTEL_CONFIG.email, boxX, metaY + 4);
+    doc.text(HOTEL_CONFIG.phone, boxX, metaY + 7);
+    doc.text(HOTEL_CONFIG.website, boxX, metaY + 10);
     
     // Confidential watermark at bottom
     doc.setFont('helvetica', 'normal');
