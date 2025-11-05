@@ -391,7 +391,7 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         try {
           const { data, error } = await supabase
             .from('invoices')
-            .select('id, guest_id, guest_name, room_id')
+            .select('id, guest_name, room_number')
             .order('created_at', { ascending: false });
           
           if (error) {
@@ -1396,7 +1396,7 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
       try {
         const { data, error } = await supabase
           .from('invoices')
-          .select('id, guest_id, guest_name, room_id')
+          .select('id, guest_name, room_number')
           .order('created_at', { ascending: false });
         
         if (error) {
