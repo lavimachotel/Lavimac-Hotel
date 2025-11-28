@@ -73,10 +73,7 @@ const RoomCard = ({ room }) => {
       </div>
       
       <div className="card-content">
-        <div className="room-detail">
-          <span className="label">Type:</span>
-          <span className="value">{type}</span>
-        </div>
+
         
         <div className="room-detail">
           <span className="label">Price:</span>
