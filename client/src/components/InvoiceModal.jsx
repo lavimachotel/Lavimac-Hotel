@@ -341,7 +341,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
     guestId: null,
     roomNumber: '',
     actualRoomNumber: '', // Add actual room number for database
-    roomType: '',
     roomRate: 0,
     checkIn: null,
     checkOut: null,
@@ -553,7 +552,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         guestId: null,
         roomNumber: '',
         actualRoomNumber: '',
-        roomType: '',
         roomRate: 0,
         checkIn: null,
         checkOut: null,
@@ -582,7 +580,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
       let actualRoomNumber = ''; // Initialize the actual room number
       let roomId = null;
       let roomRate = 0;
-      let roomType = 'Standard';
       
       // If we have a reservation_id, get room data from the reservation
       if (guest.reservation_id) {
@@ -641,27 +638,34 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         console.log(`Direct lookup for room by value: ${roomValue}`);
         
         try {
-          // Try to get the room directly from the rooms table
-          const { data: directRoomData, error: directRoomError } = await supabase
-            .from('rooms')
-            .select('*')
-            .or(`room_number.eq.${roomValue},room_number.ilike.${roomValue}`)
-            .order('id', { ascending: true })
-            .limit(1);
+          // Extract numeric value from room string (e.g., "101", "Room 101" -> 101)
+          const numericRoomValue = Number(roomValue.replace(/[^0-9]/g, ''));
           
-          if (directRoomError) {
-            console.error("Error in direct room lookup:", directRoomError);
-          } else if (directRoomData && directRoomData.length > 0) {
-            console.log("Direct room lookup successful:", directRoomData[0]);
-            roomData = directRoomData[0];
-            roomId = roomData.id;
-            roomName = roomData.name || roomData.room_number || '';
-            actualRoomNumber = roomData.room_number || '';
-            roomRate = parseFloat(roomData.price) || 0;
-            roomType = roomData.room_type || roomData.type || 'Standard';
-            console.log(`Direct room lookup: ${roomName}, Price: ${roomRate}, Type: ${roomType}`);
+          // Only proceed if we have a valid numeric room number
+          if (Number.isFinite(numericRoomValue) && numericRoomValue > 0) {
+            // Try to get the room directly from the rooms table using numeric comparison
+            const { data: directRoomData, error: directRoomError } = await supabase
+              .from('rooms')
+              .select('*')
+              .eq('room_number', numericRoomValue)
+              .order('id', { ascending: true })
+              .limit(1);
+            
+            if (directRoomError) {
+              console.error("Error in direct room lookup:", directRoomError);
+            } else if (directRoomData && directRoomData.length > 0) {
+              console.log("Direct room lookup successful:", directRoomData[0]);
+              roomData = directRoomData[0];
+              roomId = roomData.id;
+              roomName = roomData.name || roomData.room_number || '';
+              actualRoomNumber = roomData.room_number || '';
+              roomRate = parseFloat(roomData.price) || 0;
+              console.log(`Direct room lookup: ${roomName}, Price: ${roomRate}`);
+            } else {
+              console.log("No direct room match found, trying extended search");
+            }
           } else {
-            console.log("No direct room match found, trying extended search");
+            console.log(`Invalid numeric room value: ${roomValue}, skipping direct lookup`);
           }
         } catch (err) {
           console.error("Error in direct room lookup:", err);
@@ -689,12 +693,16 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
             number: r.room_number,
             name: r.name,
             price: r.price,
+            block: r.block,
             type: r.type || r.room_type
           })));
           
-          // First try exact match on room_number
+          // Log what we're searching for
+          console.log(`Searching for room with value: "${roomValue}" (type: ${typeof roomValue})`);
+          
+          // First try exact match on room_number (try both string and numeric comparison)
           const exactNumberMatch = allRooms.find(
-            r => String(r.room_number) === roomValue
+            r => String(r.room_number) === String(roomValue) || r.room_number === Number(roomValue)
           );
           
           if (exactNumberMatch) {
@@ -704,7 +712,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
             roomName = exactNumberMatch.name || exactNumberMatch.room_number || '';
             actualRoomNumber = exactNumberMatch.room_number || '';
             roomRate = parseFloat(exactNumberMatch.price) || 0;
-            roomType = exactNumberMatch.type || exactNumberMatch.room_type || 'Standard';
           } 
           // Then try exact match on name if available
           else if (allRooms.find(r => r.name && r.name.toLowerCase() === roomValue.toLowerCase())) {
@@ -718,7 +725,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
             roomName = exactNameMatch.name || exactNameMatch.room_number || '';
             actualRoomNumber = exactNameMatch.room_number || '';
             roomRate = parseFloat(exactNameMatch.price) || 0;
-            roomType = exactNameMatch.type || exactNameMatch.room_type || 'Standard';
           }
           // Then try partial match
           else {
@@ -734,7 +740,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
               roomName = partialMatch.name || partialMatch.room_number || '';
               actualRoomNumber = partialMatch.room_number || '';
               roomRate = parseFloat(partialMatch.price) || 0;
-              roomType = partialMatch.type || partialMatch.room_type || 'Standard';
             }
           }
         }
@@ -743,9 +748,43 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
       // Log the room data we found
       if (roomData) {
         console.log("Final room data:", roomData);
-        console.log(`Room: ${roomName}, ID: ${roomId}, Price: GH₵${roomRate}, Type: ${roomType}`);
+        console.log(`Room: ${roomName}, ID: ${roomId}, Price: GH₵${roomRate}`);
       } else {
         console.warn("⚠️ NO ROOM DATA FOUND! Using fallback values.");
+      }
+      
+      // Apply Aquarian room fallback price if room price is 0 or invalid
+      // Check if this is an Aquarian room by examining block, room name, or room data
+      if (roomRate === 0 || !roomRate) {
+        const guestBlock = (guest.block || guest.room_block || roomData?.block || '').toLowerCase();
+        const displayRoom = String(guest.room_name || guest.room_id || guest.room || roomName || '').toLowerCase();
+        const roomBlock = (roomData?.block || '').toLowerCase();
+        
+        // Extract numeric room number for range check
+        const roomNumberStr = String(guest.room || actualRoomNumber || roomName || '').replace(/[^0-9]/g, '');
+        const roomNumberInt = parseInt(roomNumberStr, 10);
+        
+        // Aquarian rooms are typically 101-114 or 1-14
+        const isAquarianByNumber = (roomNumberInt >= 101 && roomNumberInt <= 114) || 
+                                   (roomNumberInt >= 1 && roomNumberInt <= 14);
+        
+        // Check multiple indicators for Aquarian rooms
+        const isAquarianByKeyword = guestBlock.includes('aquarian') || 
+                                    guestBlock.includes('aquarium') ||
+                                    displayRoom.includes('aquarian') ||
+                                    displayRoom.includes('aquarium') ||
+                                    roomBlock.includes('aquarian') ||
+                                    roomBlock.includes('aquarium') ||
+                                    displayRoom.includes('aq');
+        
+        const isAquarian = isAquarianByNumber || isAquarianByKeyword;
+        
+        if (isAquarian) {
+          console.log(`Aquarian room detected (room ${roomNumberStr}) with 0 price - applying fallback price of GH₵500`);
+          roomRate = 500;
+        } else if (!roomData) {
+          console.log('No room data found; defaulting room rate to GH₵0');
+        }
       }
       
       // Set the roomName state for use in forms and templates
@@ -762,32 +801,7 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
       }
       
       const nights = calculateNights(checkIn, checkOut);
-      
-      // If no room data found, use fallback values based on common room types
-      if (!roomData) {
-        if (guest.room_type) {
-          roomType = guest.room_type;
-        }
-        
-        // Hardcoded fallback rates
-        switch(roomType.toLowerCase()) {
-          case 'executive':
-            roomRate = 1250;
-            break;
-          case 'superior':
-            roomRate = 750;
-            break;
-          case 'deluxe':
-            roomRate = 600;
-            break;
-          case 'standard':
-          default:
-            roomRate = 500;
-            break;
-        }
-        console.log(`Using fallback rate of GH₵${roomRate} for ${roomType} room`);
-      }
-      
+
       const roomTotal = roomRate * nights;
       
       // Use room name for display but keep actual room number for database queries
@@ -799,7 +813,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         guestId: guest.guest_id || guest.id,
         roomNumber: displayRoomNumber,
         actualRoomNumber: actualRoomNumber,
-        roomType: roomType,
         roomRate: roomRate,
         checkIn: checkIn,
         checkOut: checkOut,
@@ -817,7 +830,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         actualRoomNumber: actualRoomNumber,
         roomId: roomId,
         roomRate: roomRate,
-        roomType: roomType,
         nights: nights,
         total: roomTotal
       });
@@ -835,7 +847,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
       guestId: null,
       roomNumber: '',
       actualRoomNumber: '',
-      roomType: '',
       roomRate: 0,
       checkIn: null,
       checkOut: null,
@@ -904,7 +915,16 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
           });
           
           // Fetch room names for all guests with room assignments
-          const roomNumbers = guests.map(guest => guest.room).filter(room => room);
+          // Sanitize room numbers: extract numeric values and filter out invalid ones
+          const roomNumbers = guests
+            .map(guest => {
+              // Extract numeric value from room string (e.g., "101", "Room 101" -> 101)
+              const roomStr = String(guest.room || '').trim();
+              const numericValue = Number(roomStr.replace(/[^0-9]/g, ''));
+              return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+            })
+            .filter(room => room !== null);
+          
           if (roomNumbers.length > 0) {
             const { data: roomsData, error: roomsError } = await supabase
               .from('rooms')
@@ -976,7 +996,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         guest_name: invoiceDetails.guestName,
         room_number: roomNumber,
         room_name: roomName || roomNumber, // Use roomName (actual name) first, fall back to number
-        room_type: invoiceDetails.roomType || 'Standard',
         check_in_date: invoiceDetails.checkIn,
         check_out_date: invoiceDetails.checkOut,
         nights: invoiceDetails.nights || 1,
@@ -1054,7 +1073,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
         guest: invoiceDetails.guestName,
         room: invoiceDetails.roomNumber,
         room_name: roomName || invoiceDetails.roomNumber, // Use the actual room name
-        roomType: invoiceDetails.roomType,
         checkIn: invoiceDetails.checkIn,
         checkOut: invoiceDetails.checkOut,
         nights: invoiceDetails.nights,
@@ -1110,7 +1128,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
           guestName: invoiceToEdit.guest,
           guestId: invoiceToEdit.guest_id,
           roomNumber: invoiceToEdit.room,
-          roomType: invoiceToEdit.roomType || 'Standard',
           roomRate: invoiceToEdit.roomRate || 0,
           checkIn: invoiceToEdit.checkIn,
           checkOut: invoiceToEdit.checkOut,
@@ -1206,7 +1223,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
             </div>
             <div className="row">
               <div className="label">Room Type:</div>
-              <div className="value">${invoiceDetails.roomType}</div>
             </div>
             <div className="row">
               <div className="label">Check-in Date:</div>
@@ -1232,7 +1248,7 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
             </thead>
             <tbody>
               <tr>
-                <td>Room Charges (${invoiceDetails.roomType})</td>
+                <td>Room Charges</td>
                 <td>${invoiceDetails.checkIn} to ${invoiceDetails.checkOut}</td>
                 <td>GH₵${invoiceDetails.roomRate.toFixed(2)} x ${invoiceDetails.nights} nights = GH₵${invoiceDetails.roomTotal.toFixed(2)}</td>
               </tr>
@@ -1534,11 +1550,53 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
               >
                 <option value="">-- Select a guest --</option>
                 {guestOptions.map((guest, index) => {
-                  // Try to get room name from room_name first if available
                   const displayRoom = guest.room_name || guest.room_id || guest.room || '';
+                  const matchingRoom = rooms?.find(r => {
+                    const roomIdMatch = guest.room_id && r.id === guest.room_id;
+                    const roomNumberMatch = displayRoom && (r.room_number?.toString() === displayRoom.toString());
+                    return roomIdMatch || roomNumberMatch;
+                  });
+                  
+                  // Get the base room price
+                  let roomPrice = matchingRoom?.price || guest.room_price || guest.roomRate || 0;
+                  
+                  // Apply Aquarian room fallback if price is 0 or invalid
+                  if (!roomPrice || roomPrice === 0) {
+                    const guestBlock = (guest.block || guest.room_block || matchingRoom?.block || '').toLowerCase();
+                    const displayRoomLower = String(displayRoom).toLowerCase();
+                    const roomBlock = (matchingRoom?.block || '').toLowerCase();
+                    
+                    // Extract numeric room number for range check
+                    const roomNumberStr = String(displayRoom).replace(/[^0-9]/g, '');
+                    const roomNumberInt = parseInt(roomNumberStr, 10);
+                    
+                    // Aquarian rooms are typically 101-114 or 1-14
+                    const isAquarianByNumber = (roomNumberInt >= 101 && roomNumberInt <= 114) || 
+                                               (roomNumberInt >= 1 && roomNumberInt <= 14);
+                    
+                    // Check multiple indicators for Aquarian rooms
+                    const isAquarianByKeyword = guestBlock.includes('aquarian') || 
+                                                guestBlock.includes('aquarium') ||
+                                                displayRoomLower.includes('aquarian') ||
+                                                displayRoomLower.includes('aquarium') ||
+                                                roomBlock.includes('aquarian') ||
+                                                roomBlock.includes('aquarium') ||
+                                                displayRoomLower.includes('aq');
+                    
+                    const isAquarian = isAquarianByNumber || isAquarianByKeyword;
+                    
+                    if (isAquarian) {
+                      roomPrice = 500;
+                    }
+                  }
+                  
+                  const formattedPrice = roomPrice ? `₵${Number(roomPrice).toFixed(2)}` : '₵0.00';
+                  const guestLabel = guest.guest_name || guest.name || 'Guest';
                   return (
                     <option key={index} value={guest.guest_id || guest.id}>
-                      {guest.guest_name || guest.name || 'Guest'} {displayRoom ? ` - Room ${displayRoom}` : ''}
+                      {guestLabel}
+                      {displayRoom ? ` - Room ${displayRoom}` : ''}
+                      {` (${formattedPrice})`}
                     </option>
                   );
                 })}
@@ -1552,7 +1610,6 @@ const InvoiceModal = ({ isOpen, onClose, onCreateInvoice, invoiceToEdit }) => {
                 <h3 className="font-medium mb-2">Guest Details</h3>
                 <p className="mb-1"><span className="font-medium">Name:</span> {invoiceDetails.guestName}</p>
                 <p className="mb-1"><span className="font-medium">Room:</span> {invoiceDetails.roomNumber}</p>
-                <p className="mb-1"><span className="font-medium">Room Type:</span> {invoiceDetails.roomType}</p>
               </div>
               <div>
                 <h3 className="font-medium mb-2">Stay Information</h3>
